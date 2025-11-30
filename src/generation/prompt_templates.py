@@ -3,6 +3,7 @@ Prompt Templates
 提示詞模板：防止幻覺，確保事實一致性
 """
 
+
 class PromptTemplates:
     """
     提示詞模板管理器
@@ -32,29 +33,17 @@ class PromptTemplates:
 檢索到的數據：
 {results_text}
 
-重要提醒 - 數據中包含的統計類型：
-✅ 可用統計：wOBA, wRC+, WAR, Exit Velocity, Launch Angle, Barrel Rate, Hard-Hit Rate, 
-   Strikeout Rate, Walk Rate, Expected Batting Average, Expected Slugging, 
-   Ground Ball Rate, Fly Ball Rate, Line Drive Rate, MVP, Silver Slugger, Salary, Contract Years
-
-❌ 數據中不包含：HR (全壘打), BA/AVG (打擊率), RBI (打點), Runs (得分), Hits (安打), 
-   OBP (上壘率), SLG (長打率), OPS
-
 回答要求：
 1. **只使用檢索到的數據**：絕對不要編造任何數字或事實
 2. **仔細檢查年份**：如果問題中提到特定年份（如2022、2023、2024），請確保從對應的 "Season: YYYY" 記錄中提取數據
 3. **直接回答問題**：先給出明確的答案（數值或事實），再提供細節
 4. **引用數據來源**：明確說明數據來自哪位球員的哪個賽季（例如："根據 Aaron Judge 2022年的數據..."）
 5. **保持簡潔**：只提供相關信息，不要過度延伸
-6. **如果問到不存在的統計**：請明確說明"數據中沒有該統計，但有其他相關數據：[列出可用的相關統計]"
 
 重要提醒：
 - 檢索結果中的 "Season: YYYY" 表示賽季年份
 - 如果問題問的是2022年，就要從 "Season: 2022" 的記錄中找數據
 - 不同年份的數據不要混淆
-- wOBA: 加權上壘率 (0.000-1.000，聯盟平均約0.320)
-- wRC+: 加權得分創造指數 (100為聯盟平均，數值越高越好)
-- WAR: 勝場貢獻值 (數值越高對球隊貢獻越大，8+為MVP級別)
 
 如果檢索結果中沒有相關數據，請明確說明"檢索結果中沒有找到相關數據"，不要猜測。
 
@@ -68,29 +57,17 @@ User Question: {query}
 Retrieved Data:
 {results_text}
 
-Important Notice - Available Statistics in Data:
-✅ Available: wOBA, wRC+, WAR, Exit Velocity, Launch Angle, Barrel Rate, Hard-Hit Rate,
-   Strikeout Rate, Walk Rate, Expected Batting Average, Expected Slugging,
-   Ground Ball Rate, Fly Ball Rate, Line Drive Rate, MVP, Silver Slugger, Salary, Contract Years
-
-❌ NOT Available: HR (home runs), BA/AVG (batting average), RBI, Runs, Hits,
-   OBP (on-base percentage), SLG (slugging percentage), OPS
-
 Requirements:
 1. **Use ONLY the retrieved data**: Never fabricate any numbers or facts
 2. **Check the season carefully**: If the question mentions a specific year (e.g., 2022, 2023, 2024), ensure you extract data from the record with "Season: YYYY"
 3. **Answer directly**: Provide the answer (number or fact) first, then details
 4. **Cite sources clearly**: State which player and which season the data comes from (e.g., "Based on Aaron Judge's 2022 data...")
 5. **Be concise**: Only provide relevant information
-6. **If asked about unavailable statistics**: Clearly state "This statistic is not available in the data, but here are related available statistics: [list available ones]"
 
 Important reminder:
 - "Season: YYYY" in the retrieved data indicates the season year
 - If the question asks about 2022, find data from "Season: 2022" records
 - Don't mix up data from different years
-- wOBA: Weighted On-Base Average (0.000-1.000, league average ~0.320)
-- wRC+: Weighted Runs Created Plus (100 is league average, higher is better)
-- WAR: Wins Above Replacement (higher means more valuable, 8+ is MVP level)
 
 If the retrieved data doesn't contain relevant information, clearly state "No relevant data found in the search results" instead of guessing.
 

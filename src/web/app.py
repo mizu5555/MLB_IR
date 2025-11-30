@@ -12,7 +12,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 from src.retrieval.query_router import QueryRouter
 from src.retrieval.hybrid_search import HybridSearch
-from src.generation.prompt_templates import PromptTemplates
+from src.generation.prompt_templates_new import PromptTemplates
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -22,7 +22,7 @@ print("\n初始化 MLB RAG 系統...")
 query_router = QueryRouter()
 prompt_templates = PromptTemplates()
 hybrid_search = HybridSearch()
-print("✅ 系統初始化完成！\n")
+print("系統初始化完成！\n")
 
 # 檢查 Ollama 是否可用
 OLLAMA_AVAILABLE = False
@@ -108,9 +108,9 @@ def extract_answer_from_results(query, search_results, classification):
         '強勁擊球': ('Barrel Rate', '強勁擊球率', 'barrel rate'),
         
         # 強擊球率
-        'hard hit': ('Hard-Hit Rate', '硬擊球率', 'hard-hit rate'),
-        'hard-hit rate': ('Hard-Hit Rate', '硬擊球率', 'hard-hit rate'),
-        '強擊球': ('Hard-Hit Rate', '硬擊球率', 'hard-hit rate'),
+        'hard hit': ('Hard-Hit Rate', '強擊球率', 'hard-hit rate'),
+        'hard-hit rate': ('Hard-Hit Rate', '強擊球率', 'hard-hit rate'),
+        '強擊球': ('Hard-Hit Rate', '強擊球率', 'hard-hit rate'),
         
         # 三振率
         'strikeout': ('Strikeout Rate|K%', '三振率', 'strikeout rate'),
@@ -199,7 +199,7 @@ def extract_answer_from_results(query, search_results, classification):
                 answer = f"{player_name} 在 {season} 年的 {stat_name_cn} 為 {stat_value}"
             elif stat_name_cn in ['出棒初速', '擊球仰角']:
                 answer = f"{player_name} 在 {season} 年的{stat_name_cn}為 {stat_value}"
-            elif stat_name_cn in ['強勁擊球率', '硬擊球率', '三振率', '保送率', '滾地球率', '飛球率', '平飛球率']:
+            elif stat_name_cn in ['強勁擊球率', '強擊球率', '三振率', '保送率', '滾地球率', '飛球率', '平飛球率']:
                 answer = f"{player_name} 在 {season} 年的{stat_name_cn}為 {stat_value}"
             elif stat_name_cn in ['預期打擊率', '預期長打率']:
                 answer = f"{player_name} 在 {season} 年的{stat_name_cn}為 {stat_value}"
@@ -360,7 +360,7 @@ def examples():
                     'Aaron Judge 的強勁擊球率是多少？',
                     'What is Aaron Judge\'s barrel rate?',
                     'Aaron Judge 的擊球仰角是多少？',
-                    'Aaron Judge 的硬擊球率？'
+                    'Aaron Judge 的強擊球率？'
                 ]
             },
             {

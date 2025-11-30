@@ -64,13 +64,18 @@
 mlb-team-manager-assistant/
 │
 ├── src/                           # 源代碼
+│    ├── datapreprocess/ 
+│       ├── rebuild_all_data.py           # 數據重建主腳本
+│       ├── step1_generate_text_chunks.py  # 步驟1: 生成文本描述
+│       ├── step2_build_vector_index.py    # 步驟2: 建立 Vector 索引
+│       └── step3_build_bm25_index.py      # 步驟3: 建立 BM25 索引
+│                      # 系統測試腳本
 │   ├── retrieval/                 # 檢索模組
 │   │   ├── hybrid_search.py       # 混合檢索（Vector + BM25）
 │   │   └── query_router.py        # 查詢分類與路由
 │   │
 │   ├── generation/                # 生成模組
-│   │   ├── prompt_templates.py    # LLM 提示詞模板
-│   │   └── rag_system.py          # RAG 系統（可選）
+│   │   └─ prompt_templates.py     # LLM 提示詞模板
 │   │
 │   └── web/                       # 網頁應用
 │       ├── app.py                 # Flask 後端
@@ -86,16 +91,11 @@ mlb-team-manager-assistant/
 │       ├── text_chunks.json       # 文本描述
 │       ├── vector_index.faiss     # FAISS 向量索引
 │       ├── vector_embeddings.npy  # 向量嵌入
-│       ├── vector_player_ids.pkl  # Vector Player IDs
+│       ├── vector_player_ids.json # Vector Player IDs
 │       ├── bm25_index.pkl         # BM25 索引
 │       ├── bm25_corpus.pkl        # BM25 分詞語料
 │       └── bm25_player_ids.pkl    # BM25 Player IDs
 │
-├── rebuild_all_data.py            # 數據重建主腳本
-├── step1_generate_text_chunks.py  # 步驟1: 生成文本描述
-├── step2_build_vector_index.py    # 步驟2: 建立 Vector 索引
-├── step3_build_bm25_index.py      # 步驟3: 建立 BM25 索引
-├── test_system.py                 # 系統測試腳本
 │
 ├── requirements.txt               # Python 依賴
 ├── .gitignore                     # Git 忽略規則

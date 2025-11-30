@@ -8,13 +8,17 @@ import pickle
 import numpy as np
 from typing import List, Tuple, Dict
 import re
-
+import os
 
 class HybridSearch:
     """混合檢索系統"""
-    
+
     def __init__(self):
         """初始化混合檢索系統"""
+        FILE_DIR = os.path.dirname(os.path.abspath(__file__))
+        DATA_PATH = os.path.join(FILE_DIR, '../../data/mlb_data')
+        with open(os.path.join(DATA_PATH, 'text_chunks.json'), 'r', encoding='utf-8') as f:
+                data = json.load(f)
         
         print("=" * 80)
         print("初始化混合檢索系統")
@@ -22,15 +26,15 @@ class HybridSearch:
         
         # 載入 Vector Search 組件
         print("\n載入 Vector Search 組件...")
-        self._load_vector_search()
+        self._load_vector_search(DATA_PATH)
         
         # 載入 BM25 組件
         print("\n載入 BM25 組件...")
-        self._load_bm25()
+        self._load_bm25(DATA_PATH)
         
         # 載入文字描述
         print("\n載入文字描述...")
-        with open('./data/mlb_data/text_chunks.json', 'r', encoding='utf-8') as f:
+        with open(os.path.join(DATA_PATH, 'text_chunks.json'), 'r', encoding='utf-8') as f:
             data = json.load(f)
         
         # 處理不同的數據格式並驗證
@@ -78,44 +82,45 @@ class HybridSearch:
         print("\n✅ 混合檢索系統初始化完成！")
         print("=" * 80)
     
-    def _load_vector_search(self):
+    def _load_vector_search(self, data_path: str):
         """載入向量檢索組件"""
         
         import faiss
         from sentence_transformers import SentenceTransformer
         
         # 載入 FAISS 索引
-        self.faiss_index = faiss.read_index('./data/mlb_data/vector_index.faiss')
+        self.faiss_index = faiss.read_index(os.path.join(data_path, 'vector_index.faiss'))
         print(f"  ✅ FAISS 索引: {self.faiss_index.ntotal} 個向量")
         
         # 載入 embeddings
-        self.embeddings = np.load('./data/mlb_data/vector_embeddings.npy')
+        self.embeddings = np.load(os.path.join(data_path, 'vector_embeddings.npy'))
         print(f"  ✅ Embeddings: {self.embeddings.shape}")
         
         # 載入 player IDs
-        with open('./data/mlb_data/vector_player_ids.pkl', 'rb') as f:
-            self.vector_player_ids = pickle.load(f)
+        with open(os.path.join(data_path, 'vector_player_ids.json'), 'r', encoding='utf-8') as f:
+            self.vector_player_ids = json.load(f)
+
         print(f"  ✅ Vector Player IDs: {len(self.vector_player_ids)}")
         
         # 載入 embedding 模型
         self.encoder = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
         print(f"  ✅ Encoder 模型載入")
     
-    def _load_bm25(self):
+    def _load_bm25(self, data_path: str):
         """載入 BM25 組件"""
         
         # 載入 BM25 索引
-        with open('./data/mlb_data/bm25_index.pkl', 'rb') as f:
+        with open(os.path.join(data_path, 'bm25_index.pkl'), 'rb') as f:
             self.bm25 = pickle.load(f)
         print(f"  ✅ BM25 索引載入")
         
         # 載入分詞語料
-        with open('./data/mlb_data/bm25_corpus.pkl', 'rb') as f:
+        with open(os.path.join(data_path, 'bm25_corpus.pkl'), 'rb') as f:
             self.tokenized_corpus = pickle.load(f)
         print(f"  ✅ 分詞語料: {len(self.tokenized_corpus)} 文檔")
         
         # 載入 player IDs
-        with open('./data/mlb_data/bm25_player_ids.pkl', 'rb') as f:
+        with open(os.path.join(data_path, 'bm25_player_ids.pkl'), 'rb') as f:
             self.bm25_player_ids = pickle.load(f)
         print(f"  ✅ BM25 Player IDs: {len(self.bm25_player_ids)}")
     
@@ -313,7 +318,7 @@ class HybridSearch:
         has_proper_name = bool(re.search(r'\b[A-Z][a-z]+ [A-Z][a-z]+\b', query))
         
         # 檢測是否包含年份
-        has_year = bool(re.search(r'\b(2022|2023|2024|2025)\b', query))
+        has_year = bool(re.search(r'\b(2022|2023|2024)\b', query))
         
         # 檢測語意關鍵字（擴展版）
         semantic_keywords = ['high', 'low', 'best', 'good', 'bad', 'fast', 'slow', 'top', 'elite', 'worst', 'fastest', 'highest', 'lowest']
