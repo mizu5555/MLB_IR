@@ -110,6 +110,7 @@ mlb-team-manager-assistant/
 ├── requirements.txt               
 ├── .gitignore                     
 └── README.md                      
+```
 
 ---
 
