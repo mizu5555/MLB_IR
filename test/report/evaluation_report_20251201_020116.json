@@ -1,0 +1,115 @@
+{
+  "timestamp": "2025-12-01T02:01:16.213587",
+  "total_queries": 7,
+  "classification_accuracy": 1.0,
+  "recall_at_5": 1.0,
+  "recall_at_10": 1.0,
+  "mrr": 0.8571428571428571,
+  "details": [
+    {
+      "query": "Aaron Judge 2022年的 wOBA 是多少？",
+      "expected_type": "factual",
+      "predicted_type": "factual",
+      "type_correct": true,
+      "expected_lang": "zh",
+      "predicted_lang": "zh",
+      "lang_correct": true,
+      "found_at": 1,
+      "top_results": [
+        "Aaron Judge_2022",
+        "Aaron Judge_2023",
+        "Aaron Judge_2024"
+      ]
+    },
+    {
+      "query": "What was Aaron Judge's wRC+ in 2022?",
+      "expected_type": "factual",
+      "predicted_type": "factual",
+      "type_correct": true,
+      "expected_lang": "en",
+      "predicted_lang": "en",
+      "lang_correct": true,
+      "found_at": 1,
+      "top_results": [
+        "Aaron Judge_2022",
+        "Aaron Judge_2023",
+        "Aaron Judge_2024"
+      ]
+    },
+    {
+      "query": "Aaron Judge 2022年的 WAR 是多少？",
+      "expected_type": "factual",
+      "predicted_type": "factual",
+      "type_correct": true,
+      "expected_lang": "zh",
+      "predicted_lang": "zh",
+      "lang_correct": true,
+      "found_at": 2,
+      "top_results": [
+        "Aaron Judge_2023",
+        "Aaron Judge_2022",
+        "Aaron Judge_2024"
+      ]
+    },
+    {
+      "query": "2022年 wRC+ 最高的球員",
+      "expected_type": "ranking",
+      "predicted_type": "ranking",
+      "type_correct": true,
+      "expected_lang": "zh",
+      "predicted_lang": "zh",
+      "lang_correct": true,
+      "found_at": 1,
+      "top_results": [
+        "P.J. Higgins_2022",
+        "J.J. Matijevic_2022",
+        "J.D. Davis_2023"
+      ]
+    },
+    {
+      "query": "Who had the highest WAR in 2022?",
+      "expected_type": "ranking",
+      "predicted_type": "ranking",
+      "type_correct": true,
+      "expected_lang": "en",
+      "predicted_lang": "en",
+      "lang_correct": true,
+      "found_at": 1,
+      "top_results": [
+        "Forrest Wall_2023",
+        "Parker Mushinski_2023",
+        "Fernando Cruz_2022"
+      ]
+    },
+    {
+      "query": "比較 Aaron Judge 2022 和 2023 的表現",
+      "expected_type": "comparison",
+      "predicted_type": "comparison",
+      "type_correct": true,
+      "expected_lang": "zh",
+      "predicted_lang": "zh",
+      "lang_correct": true,
+      "found_at": 1,
+      "top_results": [
+        "Aaron Judge_2023",
+        "Aaron Judge_2022",
+        "Aaron Judge_2024"
+      ]
+    },
+    {
+      "query": "分析 Aaron Judge 2022年的打擊表現",
+      "expected_type": "analysis",
+      "predicted_type": "analysis",
+      "type_correct": true,
+      "expected_lang": "zh",
+      "predicted_lang": "zh",
+      "lang_correct": true,
+      "found_at": 2,
+      "top_results": [
+        "Aaron Judge_2023",
+        "Aaron Judge_2022",
+        "Aaron Judge_2024"
+      ]
+    }
+  ]
+}

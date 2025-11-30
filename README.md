@@ -52,7 +52,7 @@
 
 | 指標 | 數值 | 說明 |
 |------|------|------|
-| **Recall@10** | 1.000 | 前10個結果包含正確答案 |
+| **Recall@5** | 1.000 | 前5個結果包含正確答案 |
 | **MRR** | 0.829 | 平均排名第1.2位 |
 | **Type Accuracy** | 0.880 | 查詢分類準確率 |
 | **Fact Consistency** | 1.000 | 事實一致性 |
@@ -67,12 +67,12 @@
 mlb-team-manager-assistant/
 │
 ├── src/                           # 源代碼
-│    ├── datapreprocess/ 
-│       ├── rebuild_all_data.py           # 數據重建主腳本
-│       ├── step1_generate_text_chunks.py  # 步驟1: 生成文本描述
-│       ├── step2_build_vector_index.py    # 步驟2: 建立 Vector 索引
-│       └── step3_build_bm25_index.py      # 步驟3: 建立 BM25 索引
-│                      # 系統測試腳本
+│   ├── datapreprocess/                    # 資料預處理
+│   │   ├── rebuild_data.py                # 腳本
+│   │   ├── step1_generate_text_chunks.py  # 生成文本描述
+│   │   ├── step2_build_vector_index.py    # 建立 Vector 索引
+│   │   └── step3_build_bm25_index.py      # 建立 BM25 索引
+│   │                    
 │   ├── retrieval/                 # 檢索模組
 │   │   ├── hybrid_search.py       # 混合檢索（Vector + BM25）
 │   │   └── query_router.py        # 查詢分類與路由
@@ -99,11 +99,17 @@ mlb-team-manager-assistant/
 │       ├── bm25_corpus.pkl        # BM25 分詞語料
 │       └── bm25_player_ids.pkl    # BM25 Player IDs
 │
+├── test/ 
+├── ├── report/                    # 測試報告
+│   │    ├── bm25_corpus.pkl       # BM25 分詞語料
+│   │    └── bm25_player_ids.pkl   # BM25 Player IDs
+│   │
+│   ├── test_system.py             # 系統測試腳本
+│   └── evaluate.py                # 評估腳本
 │
-├── requirements.txt               # Python 依賴
-├── .gitignore                     # Git 忽略規則
-└── README.md                      # 本文件
-```
+├── requirements.txt               
+├── .gitignore                     
+└── README.md                      
 
 ---
 
@@ -266,11 +272,15 @@ final_score = α * vector_score + (1 - α) * bm25_score
 
 ```bash
 # 系統功能測試
-python test_system.py
+python test/test_system.py
 
 # 評估數據集測試
-python src/evaluation/evaluate.py
+python test/evaluate.py
+
 ```
+
+生成文件會在 test\report 目錄中。
+
 
 ### 評估指標
 
@@ -313,7 +323,7 @@ python src/web/app.py
 - [ ] 賽季數據擴展
 - [ ] 更多統計類型支援
 - [ ] 進階分析功能
-- [ ] 用戶反饋機制
+- [ ] 用戶對話
 - [ ] API 文檔
 
 ---

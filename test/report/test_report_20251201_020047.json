@@ -1,0 +1,122 @@
+{
+  "timestamp": "2025-12-01T02:00:41.191862",
+  "tests_passed": 22,
+  "tests_failed": 1,
+  "tests": [
+    {
+      "name": "文件存在: text_chunks.json",
+      "passed": true,
+      "message": "大小: 1.7 MB"
+    },
+    {
+      "name": "文件存在: vector_index.faiss",
+      "passed": true,
+      "message": "大小: 6.4 MB"
+    },
+    {
+      "name": "文件存在: vector_embeddings.npy",
+      "passed": true,
+      "message": "大小: 6.4 MB"
+    },
+    {
+      "name": "文件存在: vector_player_ids.json",
+      "passed": true,
+      "message": "大小: 0.1 MB"
+    },
+    {
+      "name": "文件存在: bm25_index.pkl",
+      "passed": true,
+      "message": "大小: 1.5 MB"
+    },
+    {
+      "name": "文件存在: bm25_corpus.pkl",
+      "passed": true,
+      "message": "大小: 1.7 MB"
+    },
+    {
+      "name": "文件存在: bm25_player_ids.pkl",
+      "passed": true,
+      "message": "大小: 0.1 MB"
+    },
+    {
+      "name": "FAISS 索引載入",
+      "passed": true,
+      "message": ""
+    },
+    {
+      "name": "BM25 索引載入",
+      "passed": true,
+      "message": ""
+    },
+    {
+      "name": "Encoder 模型載入",
+      "passed": true,
+      "message": ""
+    },
+    {
+      "name": "文本描述載入",
+      "passed": true,
+      "message": "4387 條記錄"
+    },
+    {
+      "name": "分類查詢: 'Aaron Judge 2022年的 wOBA 是多少？...'",
+      "passed": true,
+      "message": "類型: factual (預期: factual), 語言: zh (預期: zh)"
+    },
+    {
+      "name": "分類查詢: 'What was Aaron Judge's wRC+ in 2022?...'",
+      "passed": true,
+      "message": "類型: factual (預期: factual), 語言: en (預期: en)"
+    },
+    {
+      "name": "分類查詢: '2024年 WAR 最高的5位球員...'",
+      "passed": true,
+      "message": "類型: ranking (預期: ranking), 語言: zh (預期: zh)"
+    },
+    {
+      "name": "分類查詢: 'Compare Aaron Judge and Juan Soto...'",
+      "passed": true,
+      "message": "類型: comparison (預期: comparison), 語言: en (預期: en)"
+    },
+    {
+      "name": "檢索: 'Aaron Judge 2022'",
+      "passed": true,
+      "message": "返回 5 個結果, Top: Aaron Judge_2023 (0.8004)"
+    },
+    {
+      "name": "檢索: 'high exit velocity'",
+      "passed": true,
+      "message": "返回 5 個結果, Top: Logan O'Hoppe_2024 (0.6934)"
+    },
+    {
+      "name": "檢索: 'pitcher strikeout rate'",
+      "passed": true,
+      "message": "返回 5 個結果, Top: Trevor Gott_2023 (0.5000)"
+    },
+    {
+      "name": "Vector Search",
+      "passed": true,
+      "message": "返回 5 個結果"
+    },
+    {
+      "name": "BM25 Search",
+      "passed": true,
+      "message": "返回 5 個結果"
+    },
+    {
+      "name": "答案提取: 'wOBA'",
+      "passed": true,
+      "message": "提取值: 0.458 (預期: 0.458)"
+    },
+    {
+      "name": "答案提取: 'wRC+'",
+      "passed": false,
+      "message": "未找到匹配"
+    },
+    {
+      "name": "答案提取: 'WAR'",
+      "passed": true,
+      "message": "提取值: 11.1 (預期: 11.1)"
+    }
+  ]
+}

@@ -6,7 +6,6 @@ Query Router
 import re
 from typing import Dict, List, Tuple
 
-
 class QueryRouter:
     """
     查詢路由器：分析用戶查詢並分類
@@ -31,21 +30,18 @@ class QueryRouter:
         # Factual 查詢關鍵字
         self.factual_keywords = [
             # 疑問詞
-            '多少', '幾', '什麼', '哪', '誰',
+            '多少', '幾', '什麼',
             'how many', 'how much', 'what', 'who', 'which',
             
             # 具體數據
-            '數據', '統計', '成績', 'stats', 'statistics', 'data',
-            
-            # 年份（通常是查詢特定年份數據）
-            '2022', '2023', '2024'
+            '數據', '統計', '成績', 'stats', 'statistics', 'data',   
         ]
         
         # Ranking 查詢關鍵字
         self.ranking_keywords = [
             # 排名
-            '前', '最', '排名', '名單', '領先',
-            'top', 'best', 'worst', 'ranking', 'list', 'leader',
+            '前', '最', '排名', '名單', '領先', "最高", "最多",
+            'top', 'best', "most", "highest", 'worst', 'ranking', 'list', 'leader', "leading",
             
             # 比較級
             '最高', '最低', '最快', '最慢', '最多', '最少',
@@ -58,19 +54,15 @@ class QueryRouter:
         # Comparison 查詢關鍵字
         self.comparison_keywords = [
             # 比較詞
-            '比較', '對比', '差異', 'vs', 'versus',
-            'compare', 'comparison', 'difference', 'between',
-            
-            # 連接詞
-            '和', '與', '還是', 
-            'and', 'or'
+            "對比", "差異", "比較", "相比", "相比於",
+            'compare', 'comparison', 'difference', 'between', 'vs', 'versus', "year over year"
         ]
         
         # Analysis 查詢關鍵字
         self.analysis_keywords = [
             # 分析詞
-            '分析', '評估', '解釋', '為什麼', '原因',
-            'analyze', 'analysis', 'evaluate', 'explain', 'why', 'reason',
+            '分析', '評估', '解釋', '為什麼', '原因', "解讀",
+            'analyze', 'analysis', 'evaluate', 'explain', 'why', 'reason', "breakdown" ,
             
             # 趨勢
             '趨勢', '變化', '進步', '退步', '發展',
@@ -107,7 +99,7 @@ class QueryRouter:
         has_player_name = bool(re.search(r'\b[A-Z][a-z]+ [A-Z][a-z]+\b', query))
         
         # 檢測年份
-        has_year = bool(re.search(r'\b(2022|2023|2024|2025)\b', query))
+        has_year = bool(re.search(r'\b(2022|2023|2024)\b', query))
         
         # 計算每種類型的匹配分數
         scores = {
@@ -121,7 +113,10 @@ class QueryRouter:
         
         # 如果包含球員名字 + 年份 → 很可能是 Factual
         if has_player_name and has_year:
-            scores['factual'] += 2
+            # 若包含兩個年份以上，則不加分
+            years_found = re.findall(r'\b(2022|2023|2024)\b', query)
+            if len(set(years_found)) == 1:
+                scores['factual'] += 3
         
         # 如果包含多個球員名字 → 可能是 Comparison
         player_names = re.findall(r'\b[A-Z][a-z]+ [A-Z][a-z]+\b', query)
@@ -158,7 +153,7 @@ class QueryRouter:
             'has_player_name': has_player_name,
             'has_year': has_year,
             'language': language,
-            'scores': scores  # 用於調試
+            'scores': scores 
         }
     
     def _has_chinese(self, text: str) -> bool:
