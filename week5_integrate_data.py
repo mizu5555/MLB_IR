@@ -34,7 +34,7 @@ def integrate_awards(documents: List[Dict], awards_data: Dict, mapping: Dict) ->
     
     Args:
         documents: 球員文檔列表
-        awards_data: 獎項數據 (playerID -> awards)
+        awards_data: 獎項數據 (playerID 或 player_name -> awards)
         mapping: playerID 映射表
     
     Returns:
@@ -44,20 +44,25 @@ def integrate_awards(documents: List[Dict], awards_data: Dict, mapping: Dict) ->
     print("\n整合獎項數據...")
     
     integrated_count = 0
-    id_to_name = mapping['id_to_name']
+    id_to_name = mapping.get('id_to_name', {})
     
     for doc in documents:
         player_name = doc['player_name']
         
-        # 嘗試找到對應的 playerID
+        # 方式 1: 嘗試使用 playerID
         player_id = None
         for pid, name in id_to_name.items():
             if name == player_name:
                 player_id = pid
                 break
         
+        # 方式 2: 直接使用球員名字
         if player_id and player_id in awards_data:
             doc['awards'] = awards_data[player_id]
+            integrated_count += 1
+        elif player_name in awards_data:
+            # 獎項數據使用球員名字作為 key
+            doc['awards'] = awards_data[player_name]
             integrated_count += 1
         else:
             # 沒有獎項數據
@@ -73,7 +78,7 @@ def integrate_salaries(documents: List[Dict], salary_data: Dict, mapping: Dict) 
     
     Args:
         documents: 球員文檔列表
-        salary_data: 薪資數據 (playerID -> salary)
+        salary_data: 薪資數據 (playerID 或 player_name -> salary)
         mapping: playerID 映射表
     
     Returns:
@@ -83,20 +88,25 @@ def integrate_salaries(documents: List[Dict], salary_data: Dict, mapping: Dict) 
     print("\n整合薪資數據...")
     
     integrated_count = 0
-    id_to_name = mapping['id_to_name']
+    id_to_name = mapping.get('id_to_name', {})
     
     for doc in documents:
         player_name = doc['player_name']
         
-        # 嘗試找到對應的 playerID
+        # 方式 1: 嘗試使用 playerID
         player_id = None
         for pid, name in id_to_name.items():
             if name == player_name:
                 player_id = pid
                 break
         
+        # 方式 2: 直接使用球員名字
         if player_id and player_id in salary_data:
             doc['contract'] = salary_data[player_id]
+            integrated_count += 1
+        elif player_name in salary_data:
+            # 薪資數據使用球員名字作為 key
+            doc['contract'] = salary_data[player_name]
             integrated_count += 1
         else:
             # 沒有薪資數據
@@ -159,13 +169,13 @@ def main():
     
     # 檢查必要數據
     if not mapping:
-        print("❌ 缺少映射表，請先執行 week5_player_mapping.py")
-        return
+        print("⚠️  映射表不存在，使用球員名字作為 key")
+        mapping = {'id_to_name': {}, 'name_to_id': {}}
     
     print(f"✅ 獎項數據: {len(awards_data) if awards_data else 0} 位球員")
     print(f"✅ 薪資數據: {len(salary_data) if salary_data else 0} 位球員")
     print(f"✅ Statcast 結構: 已載入")
-    print(f"✅ 映射表: {len(mapping['id_to_name'])} 位球員")
+    print(f"✅ 映射表: {len(mapping.get('id_to_name', {})) if mapping else 0} 位球員")
     
     # 3. 整合數據
     print("\n" + "=" * 80)
