@@ -2,6 +2,9 @@
 
 一個基於混合檢索（Vector Search + BM25）和 LLM 的 MLB 球員數據分析系統。
 
+<img width="2397" height="1157" alt="螢幕擷取畫面 2025-11-30 192110" src="https://github.com/user-attachments/assets/cd0a8de8-671b-4f40-9c5a-1222af6969d2" />
+
+
 ---
 
 ## 🎯 專案目標
@@ -54,7 +57,7 @@
 | **Type Accuracy** | 0.880 | 查詢分類準確率 |
 | **Fact Consistency** | 1.000 | 事實一致性 |
 | **Database Size** | 4,387 | 球員記錄數量 |
-| **Seasons** | 2022-2025 | 涵蓋賽季 |
+| **Seasons** | 2022-2024 | 涵蓋賽季 |
 
 ---
 
@@ -140,7 +143,7 @@ pip install -r requirements.txt
 ### 4. 建立索引
 
 ```bash
-# 運行數據重建腳本
+# 運行數據重建腳本(待改進)
 python rebuild_all_data.py
 ```
 
@@ -166,13 +169,6 @@ python src/web/app.py
 ```
 
 訪問: http://127.0.0.1:5000
-
-### 測試系統
-
-```bash
-# 運行測試腳本
-python test_system.py
-```
 
 ---
 
@@ -314,7 +310,7 @@ python src/web/app.py
 
 ### 待開發
 
-- [ ] 多賽季數據擴展
+- [ ] 賽季數據擴展
 - [ ] 更多統計類型支援
 - [ ] 進階分析功能
 - [ ] 用戶反饋機制
@@ -329,9 +325,8 @@ python src/web/app.py
 2. Robertson & Zaragoza, 2009. "The Probabilistic Relevance Framework: BM25 and Beyond"
 3. Reimers & Gurevych, 2019. "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks"
 
-
 ---
 
-**版本**: 1.0.0
+**版本**: 1.0.1
 
 本專案為課程作業，僅供學術用途。
