@@ -1,3 +1,7 @@
 venv/
 .venv/
+__pycache__/
+data/
 mlb_data/
+mlb_datas/
+mlb_lancedb/

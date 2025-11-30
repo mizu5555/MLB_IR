@@ -1,0 +1,26 @@
+# MLB Team Manager Assistant - Python Dependencies
+
+# Web Framework
+flask==3.0.0
+flask-cors==4.0.0
+
+# Data Processing
+numpy==1.26.0
+pandas==2.1.0
+
+# Vector Search
+faiss-cpu==1.7.4
+sentence-transformers==2.2.2
+
+# BM25 Search
+rank-bm25==0.2.2
+
+# Chinese Text Processing
+jieba==0.42.1
+
+# LLM Integration
+ollama==0.1.0
+
+# Optional: For advanced features
+# torch==2.0.0  # If using GPU for sentence-transformers
+# transformers==4.30.0  # If using custom models
