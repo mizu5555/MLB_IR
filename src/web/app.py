@@ -12,7 +12,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 from src.retrieval.query_router import QueryRouter
 from src.retrieval.hybrid_search import HybridSearch
-from src.generation.prompt_templates_new import PromptTemplates
+from src.generation.prompt_templates import PromptTemplates
 
 app = Flask(__name__, static_folder='static')
 CORS(app)

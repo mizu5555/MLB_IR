@@ -279,7 +279,7 @@ python test/evaluate.py
 
 ```
 
-生成文件會在 test\report 目錄中。
+生成文件會在 test/report 目錄中。
 
 
 ### 評估指標
