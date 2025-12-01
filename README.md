@@ -110,6 +110,7 @@ mlb-team-manager-assistant/
 ├── requirements.txt               
 ├── .gitignore                     
 └── README.md                      
+```
 
 ---
 
@@ -121,13 +122,13 @@ mlb-team-manager-assistant/
 - 至少 8GB RAM
 - 100MB 磁盤空間
 
-### 2. 安裝依賴
+### 2. 環境安裝
 
 ```bash
 git clone <repository-url>
 cd mlb-team-manager-assistant
 
-# 創建虛擬環境（推薦）
+# 創建虛擬環境
 python -m venv venv
 
 # 啟動虛擬環境
@@ -136,7 +137,7 @@ venv\Scripts\activate
 # Mac/Linux:
 source venv/bin/activate
 
-# 安裝依賴
+# 安裝
 pip install -r requirements.txt
 ```
 
@@ -152,8 +153,6 @@ pip install -r requirements.txt
 # 運行數據重建腳本(待改進)
 python rebuild_all_data.py
 ```
-
-**預期時間**: 5-10 分鐘
 
 **生成文件**: 
 - `data/mlb_data/text_chunks.json` (~8MB)
@@ -254,7 +253,7 @@ final_score = α * vector_score + (1 - α) * bm25_score
 - Exit Velocity (出棒初速)
 - Launch Angle (擊球仰角)
 - Barrel Rate (強勁擊球率)
-- Hard-Hit Rate (硬擊球率)
+- Hard-Hit Rate (強擊球率)
 
 ### 其他統計
 
