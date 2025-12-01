@@ -12,9 +12,9 @@ ROOT = Path(__file__).resolve().parents[2]  # project 根目錄
 RETRIEVAL_DIR = ROOT / "src" / "retrieval"
 sys.path.append(str(RETRIEVAL_DIR))
 
-from query_router import QueryRouter          # noqa: E402
-from hybrid_search import HybridSearch        # noqa: E402
-from lookup_engine import LookupEngine        # noqa: E402
+from query_router import QueryRouter          
+from hybrid_search import HybridSearch        
+from lookup_engine import LookupEngine        
 
 
 # --------------------------------------------------------

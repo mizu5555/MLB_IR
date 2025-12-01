@@ -1,341 +1,206 @@
-# MLB Team Manager Assistant
+# MLB IR System (MLB 資料檢索系統)
 
-一個基於混合檢索（Vector Search + BM25）和 LLM 的 MLB 球員數據分析系統。
+本系統提供 **純 RAG 資料檢索** 與 **LLM + RAG 問答能力**，支援 **中英文查詢**，並針對 MLB 數據做高一致性回覆。
 
-<img width="2397" height="1157" alt="螢幕擷取畫面 2025-11-30 192110" src="https://github.com/user-attachments/assets/cd0a8de8-671b-4f40-9c5a-1222af6969d2" />
-
-
----
-
-## 🎯 專案目標
-
-為 MLB 團隊經理提供高性能的球員數據檢索和分析工具，確保事實一致性（Fact Consistency）接近 100%，避免 LLM 幻覺問題。
-
-### 核心 IR 任務
-
-1. **高性能異質檢索** (High-Performance Heterogeneous Retrieval)
-   - 混合檢索：Vector Search (語意) + BM25 (關鍵字)
-   - 智能查詢路由：根據查詢類型自動調整檢索策略
-
-2. **事實一致性增強生成** (Fact Consistency Enhanced Generation)
-   - 基於檢索結果的答案生成
-   - 防止數值幻覺
-   - 可選的 LLM 深度分析
+專案使用 **高效異質檢索 High‑Performance Heterogeneous Retrieval**（向量 + BM25）與 **Fact Consistency Enhanced Generation**（結構化事實注入）以達成高品質的數據問答能力。
 
 ---
 
-## 📊 系統架構
+# 🔧 專案架構 Project Structure
 
 ```
-用戶查詢
-    ↓
-[查詢分類] → 分析查詢類型、語言
-    ↓
-[混合檢索]
-    ├── Vector Search (FAISS) → 語意相似度
-    └── BM25 Search → 關鍵字匹配
-    ↓
-[動態權重融合] → 根據查詢類型調整權重
-    ↓
-[答案生成]
-    ├── 純 RAG 模式 → 從檢索結果提取答案
-    └── LLM 模式 → 使用 Ollama 生成深度分析
-    ↓
-最終答案 + 檢索證據
-```
-
----
-
-## 🚀 性能指標
-
-基於評估數據集的測試結果：
-
-| 指標 | 數值 | 說明 |
-|------|------|------|
-| **Recall@5** | 1.000 | 前5個結果包含正確答案 |
-| **MRR** | 0.829 | 平均排名第1.2位 |
-| **Type Accuracy** | 0.880 | 查詢分類準確率 |
-| **Fact Consistency** | 1.000 | 事實一致性 |
-| **Database Size** | 4,387 | 球員記錄數量 |
-| **Seasons** | 2022-2024 | 涵蓋賽季 |
-
----
-
-## 📁 專案結構
-
-```
-mlb-team-manager-assistant/
-│
-├── src/                           # 源代碼
-│   ├── datapreprocess/                    # 資料預處理
-│   │   ├── rebuild_data.py                # 腳本
-│   │   ├── step1_generate_text_chunks.py  # 生成文本描述
-│   │   ├── step2_build_vector_index.py    # 建立 Vector 索引
-│   │   └── step3_build_bm25_index.py      # 建立 BM25 索引
-│   │                    
-│   ├── retrieval/                 # 檢索模組
-│   │   ├── hybrid_search.py       # 混合檢索（Vector + BM25）
-│   │   └── query_router.py        # 查詢分類與路由
+├── src/
+│   ├── datapreprocess/          # 數據前處理
+│   │   ├── step0_parse_text_chunks.py      # 從 text_chunks.json 解析＋生成 player_db
+│   │   ├── step1_build_training_data.py     # 產生訓練資料 (embedding_text, keyword_text 等)
+│   │   ├── step2_build_vector_index.py      # 建立向量索引 FAISS
+│   │   ├── step3_build_bm25_index.py        # 建立 BM25 索引
+│   │   └── field_canonical_map.json         # 指標欄位標準化映射
 │   │
-│   ├── generation/                # 生成模組
-│   │   └─ prompt_templates.py     # LLM 提示詞模板
+│   ├── retrieval/               # 檢索系統
+│   │   ├── hybrid_search.py     # 混合檢索 (Vector + BM25)
+│   │   ├── query_router.py      # 查詢分類器＋路由
+│   │   └── lookup_engine.py     # 數值查詢與事實取回
 │   │
-│   └── web/                       # 網頁應用
-│       ├── app.py                 # Flask 後端
+│   ├── generation/
+│   │   └── prompt_templates.py  # LLM 提示詞與 Fact Consistency
+│   │
+│   └── web/
+│       ├── app.py               # 後端 API
 │       └── static/
-│           └── index.html         # 前端界面
+│           └── index.html       # 前端網頁介面
 │
-├── data/                          # 數據目錄
-│   ├── raw/                       # 原始 CSV 數據
-│   │   ├── statcast_batters_enhanced.csv
-│   │   └── statcast_pitchers_enhanced.csv
-│   │
-│   └── mlb_data/                  # 生成的索引文件
-│       ├── text_chunks.json       # 文本描述
-│       ├── vector_index.faiss     # FAISS 向量索引
-│       ├── vector_embeddings.npy  # 向量嵌入
-│       ├── vector_player_ids.json # Vector Player IDs
-│       ├── bm25_index.pkl         # BM25 索引
-│       ├── bm25_corpus.pkl        # BM25 分詞語料
-│       └── bm25_player_ids.pkl    # BM25 Player IDs
-│
-├── test/ 
-├── ├── report/                    # 測試報告
-│   │    ├── bm25_corpus.pkl       # BM25 分詞語料
-│   │    └── bm25_player_ids.pkl   # BM25 Player IDs
-│   │
-│   ├── test_system.py             # 系統測試腳本
-│   └── evaluate.py                # 評估腳本
-│
-├── requirements.txt               
-├── .gitignore                     
-└── README.md                      
+├── data/
+│   ├── raw/                     # 原始 CSV
+│   └── mlb_data_adv/            # 處理後資料與索引
+│       ├── text_chunks.json
+│       ├── player_db.json
+│       ├── training_data.json
+│       ├── vector_index.faiss
+│       ├── vector_embeddings.npy
+│       ├── vector_ids.json
+│       ├── bm25_index.pkl
+│       ├── bm25_corpus.pkl
+│       └── bm25_ids.pkl
 ```
 
 ---
 
-## 🛠️ 安裝與設置
+# 🧩 處理流程 Processing Pipeline
 
-### 1. 環境要求
-
-- Python 3.8+
-- 至少 8GB RAM
-- 100MB 磁盤空間
-
-### 2. 環境安裝
-
-```bash
-git clone <repository-url>
-cd mlb-team-manager-assistant
-
-# 創建虛擬環境
-python -m venv venv
-
-# 啟動虛擬環境
-# Windows:
-venv\Scripts\activate
-# Mac/Linux:
-source venv/bin/activate
-
-# 安裝
-pip install -r requirements.txt
-```
-
-### 3. 準備數據
-
-確保 `data/raw/` 目錄包含原始 CSV 文件：
-- `statcast_batters_enhanced.csv`
-- `statcast_pitchers_enhanced.csv`
-
-### 4. 建立索引
-
-```bash
-# 運行數據重建腳本(待改進)
-python rebuild_all_data.py
-```
-
-**生成文件**: 
-- `data/mlb_data/text_chunks.json` (~8MB)
-- `data/mlb_data/vector_index.faiss` (~7MB)
-- `data/mlb_data/vector_embeddings.npy` (~7MB)
-- `data/mlb_data/vector_player_ids.pkl` (~100KB)
-- `data/mlb_data/bm25_index.pkl` (~5MB)
-- `data/mlb_data/bm25_corpus.pkl` (~2MB)
-- `data/mlb_data/bm25_player_ids.pkl` (~100KB)
+系統的資料建構與檢索流程如下：
 
 ---
 
-## 🚀 使用方法
+## ✅ Step 0 — 解析原始 text_chunks.json
 
-### 啟動網頁應用
+**輸入：** data/mlb_data_adv/text_chunks.json
+**輸出：**
 
-```bash
-python src/web/app.py
-```
+* `player_db.json`（逐年記錄打/投）
+* 每一筆資料解析後的清潔結構
 
-訪問: http://127.0.0.1:5000
+🎯 功能：
 
----
-
-## 💡 查詢範例
-
-### Factual 查詢（事實型）
+* 解析 PlayerName_PlayerID_Season 格式
+* 支援雙刀流（Shohei Ohtani），並逐年記錄 type：
 
 ```
-Aaron Judge 2022年的 wOBA 是多少？
-What was Aaron Judge's wRC+ in 2022?
-Aaron Judge 的出棒初速是多少？
-```
-
-### Ranking 查詢（排名型）
-
-```
-2022年 wRC+ 最高的5位球員
-Who had the highest WAR in 2024?
-最高出棒初速的打者有誰？
-```
-
-### Comparison 查詢（比較型）
-
-```
-比較 Aaron Judge 2022 和 2023 的表現
-Compare Aaron Judge and Juan Soto in 2024
-```
-
-### Analysis 查詢（分析型）
-
-```
-分析 Aaron Judge 2022年為什麼能獲得 MVP
-Why is Aaron Judge's 2022 season so valuable?
+"2022": ["batter", "pitcher"],
+"2024": ["batter"]
 ```
 
 ---
 
-## 🔧 技術細節
+## ✅ Step 1 — 產生訓練資料（embedding_text + keyword_text）
 
-### Vector Search
+**輸入：** Step0 數據
+**輸出：** training_data.json
 
-- **模型**: `sentence-transformers/all-MiniLM-L6-v2`
-- **維度**: 384
-- **索引**: FAISS (Flat L2)
-- **優勢**: 捕捉語意相似度
+包含：
 
-### BM25 Search
+* embedding_text（英文摘要用於向量）
+* keyword_text（中英混合、專有名詞英文用於 BM25）
+* field_text（後續 LLM 查詢可用）
 
-- **分詞**: jieba (中文) + whitespace (英文)
-- **參數**: k1=1.5, b=0.75
-- **優勢**: 精確關鍵字匹配
+📌 embedding_text 完全英文
+📌 keyword_text 中英混合（名詞英文）
+📌 數字處理為 **純文字，不會造成小數點解析問題**
 
-### 混合策略
+---
 
-```python
-final_score = α * vector_score + (1 - α) * bm25_score
+## 📌 Step 2 — 建立向量索引（FAISS）
+
+**模型：** all‑MiniLM‑L6‑v2（384 維度）
+**輸入：** training_data.json
+**輸出：**
+
+* vector_embeddings.npy
+* vector_index.faiss
+* vector_ids.json
+
+📌 選用 384d 模型理由：效率極高、泛化強、能支援英文 MLB 數據語意。
+
+---
+
+## 📌 Step 3 — 建立 BM25 索引
+
+**輸入：** keyword_text
+**輸出：**
+
+* bm25_index.pkl
+* bm25_corpus.pkl
+* bm25_ids.pkl
+
+📌 使用 jieba（中文）＋ whitespace tokenizer（英文）
+
+---
+
+# 🔍 檢索 Retrieval
+
+## Hybrid Search 混合檢索
+
+### 🔍 Step4 問題回顧 & 改進方向
+
+在 Step4 測試 Hybrid Search 時觀察到兩個重要問題：
+
+#### **問題 1：中文查詢對不到英文球員名字**
+
+例如：`大谷 2023 投球` → 無法命中 Shohei Ohtani。
+原因：
+
+* embedding_text 完全英文
+* keyword_text 也只有英文
+* 中文名字未被映射 → 檢索系統完全不認得「大谷」「大谷翔平」
+
+➡ **解法將於 Step5 實作：加入中英球員姓名映射表（alias dictionary）**
+系統會先將中文別名轉成英文正式名稱再進行檢索。
+
+---
+
+#### **問題 2：查詢 pitching 時，打者資料比投手資料排更前面**
+
+例如查：`Shohei Ohtani 2023 pitching`
+
+* Shohei Ohtani 2023 batter → score 更高（BM25 優勢）
+* Shohei Ohtani 2023 pitcher → 被排到第 4 名
+
+原因：
+
+* BM25 偏好文字較長的文件（打者 stats 行數遠大於投手）
+* vector 其實判對（pitcher vec 分數更高）
+* 但 hybrid 後被 BM25 拉偏
+
+➡ **解法將於 Step5 實作：Query Router + Document Boosting**
+
+* 自動偵測 query 在問 pitching / batting
+* 若問 pitching → pitcher 文檔加權 +0.5、batter 文檔扣權 -0.3
+* 若問 batting → batter 文檔加權 +0.5
+* ranking/analysis 也會調整 α 值
+
+---
+
+### ⭐ Step4 重要結論
+
+Hybrid Search 已正常運作，但若無 Query Router：
+
+* 中文查詢無法命中球員
+* 投打類型無法精準控制
+* BM25 存在偏好長文件的偏差
+
+➡ **Step5 將改善這些問題，讓檢索更精準且語意更聰明。**
+
+```
+final_score = α * vector + (1 - α) * bm25
 ```
 
-**α 值（依查詢類型）**:
-- Factual: 0.2 (偏向 BM25，精確匹配)
-- Ranking: 0.5 (平衡)
-- Comparison: 0.3 (略偏向 Vector)
-- Analysis: 0.4 (略偏向 BM25)
+依查詢類型自動調整 α：
+
+* Factual → 0.2
+* Ranking → 0.5
+* Comparison → 0.3
+* Analysis → 0.4
 
 ---
 
-## 📈 支援的統計類型
+# 🧠 LLM 生成 Generation
 
-### 進階統計
+## Fact Consistency Enhanced Generation (FCEG)
 
-- **wOBA** (加權上壘率): 0.320為聯盟平均
-- **wRC+** (加權得分創造指數): 100為平均
-- **WAR** (勝場貢獻值): 8+為MVP級別
-
-### Statcast 數據
-
-- Exit Velocity (出棒初速)
-- Launch Angle (擊球仰角)
-- Barrel Rate (強勁擊球率)
-- Hard-Hit Rate (強擊球率)
-
-### 其他統計
-
-- 三振率 (K%)
-- 保送率 (BB%)
-- 滾地球率 (GB%)
-- 飛球率 (FB%)
-- 薪資與合約資訊
+* hybrid search 回傳 N 筆資料 → 整理成 fact_block
+* 注入 prompt → 避免幻覺
+* 支援中英文球探式語氣
 
 ---
 
-## 🧪 測試與評估
+# 💻 Web 介面 Web App
 
-### 運行測試
+提供 2 種模式：
 
-```bash
-# 系統功能測試
-python test/test_system.py
+1. **純 RAG 模式**：直接秀出檢索結果
+2. **LLM + RAG 問答模式**：整合檢索結果回答
 
-# 評估數據集測試
-python test/evaluate.py
-
-```
-
-生成文件會在 test/report 目錄中。
-
-
-### 評估指標
-
-- **Recall@k**: 前k個結果中包含正確答案的比例
-- **MRR**: Mean Reciprocal Rank（平均倒數排名）
-- **Type Accuracy**: 查詢分類準確率
-- **Fact Consistency**: 事實一致性分數
 
 ---
 
-## 🔄 數據更新
-
-如果需要更新數據或重建索引：
-
-```bash
-# 1. 更新 data/raw/ 中的 CSV 文件
-
-# 2. 重建所有索引
-python rebuild_all_data.py
-
-# 3. 重啟服務器
-python src/web/app.py
-```
-
----
-
-## 開發計劃
-
-### 已完成
-
-- [x] 混合檢索系統（Vector + BM25）
-- [x] 智能查詢路由
-- [x] 事實一致性驗證
-- [x] 網頁界面
-- [x] 雙語支援（中英文）
-- [x] 數據重建工具
-
-### 待開發
-
-- [ ] 賽季數據擴展
-- [ ] 更多統計類型支援
-- [ ] 進階分析功能
-- [ ] 用戶對話
-- [ ] API 文檔
-
----
-
-
-## 📚 參考文獻
-
-1. Min et al., 2024. "Exploring the Impact of Table-to-Text Methods on Augmenting LLM-based Question Answering with Domain Hybrid Data"
-2. Robertson & Zaragoza, 2009. "The Probabilistic Relevance Framework: BM25 and Beyond"
-3. Reimers & Gurevych, 2019. "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks"
-
----
-
-**版本**: 1.0.1
-
-本專案為課程作業，僅供學術用途。
+如需補充、調整格式、或加入示例，隨時告訴我！
