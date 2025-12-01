@@ -64,12 +64,43 @@ def extract_answer_from_results(query, search_results, classification):
     if not search_results:
         return "抱歉，沒有找到相關數據。"
     
-    top_result = search_results[0]
-    player_id = top_result['player_id']
-    full_text = top_result['full_text']
-    
+    query_lower = query.lower()
     query_type = classification['query_type']
     language = classification['language']
+    
+    matched_names = set()
+    for result in search_results[:5]:
+        # player_id 格式為 "Name_Year"
+        player_full_name = result['player_id'].split('_')[0]
+        name_parts = player_full_name.lower().split()
+        if any(part in query_lower for part in name_parts if len(part) > 1):
+            matched_names.add(player_full_name)
+    
+    # 如果找到了 2 個以上的不同球員
+    if len(matched_names) > 1:
+        # 轉換成列表以便顯示
+        names_list = list(matched_names)
+        names_str = "、".join(names_list[:3]) # 最多列出 3 個例子
+        if len(names_list) > 3:
+            names_str += "..."
+            
+        if language == 'zh':
+            return f"找到多位與「{query}」相關的選手（如：{names_str}）。請輸入完整姓名以精確搜尋。"
+        else:
+            return f"Multiple players found matching '{query}' (e.g., {names_str}). Please enter the full name for a precise search."
+    
+    target_result = search_results[0]
+    
+    # 嘗試尋找與 query 更匹配的球員 (如果您上一輪有加上這段，請保留)
+    for result in search_results:
+        player_id_name = result['player_id'].split('_')[0].lower()
+        name_parts = player_id_name.split()
+        if any(part in query_lower for part in name_parts if len(part) > 1):
+            target_result = result
+            break
+            
+    player_id = target_result['player_id']
+    full_text = target_result['full_text']
     
     # 提取球員名和賽季
     import re
@@ -82,82 +113,37 @@ def extract_answer_from_results(query, search_results, classification):
     # 基於實際數據格式的統計映射
     # 實際數據包含：wOBA, wRC+, WAR, Exit Velocity, Launch Angle, Barrel Rate 等
     stat_mappings = {
-        # wOBA (加權上壘率)
-        'woba': ('wOBA|Expected wOBA', 'wOBA', 'wOBA'),
+        # --- 基礎數據 ---
+        'average': ('AVG', '打擊率', 'Batting Average'),
+        '打擊率': ('AVG', '打擊率', 'Batting Average'),
+        'home run': ('HR', '全壘打', 'Home Runs'),
+        '全壘打': ('HR', '全壘打', 'Home Runs'),
+        'rbi': ('RBI', '打點', 'RBI'),
+        '打點': ('RBI', '打點', 'RBI'),
         
-        # wRC+ (加權得分創造指數)
+        # --- 進階數據 ---
+        'woba': ('wOBA', 'wOBA', 'wOBA'),
+        'xwoba': ('xwOBA', 'xwOBA', 'xwOBA'),
+        # 注意：wRC+ 的 + 符號需要轉義
         'wrc+': ('wRC\+', 'wRC+', 'wRC+'),
         'wrc': ('wRC\+', 'wRC+', 'wRC+'),
-        
-        # WAR (勝場貢獻值)
         'war': ('WAR', 'WAR', 'WAR'),
+        'ops': ('OPS', 'OPS', 'OPS'),
         
-        # 出棒初速
-        'exit velocity': ('Exit Velocity', '出棒初速', 'exit velocity'),
-        '出棒初速': ('Exit Velocity', '出棒初速', 'exit velocity'),
-        'exit velo': ('Exit Velocity', '出棒初速', 'exit velocity'),
+        # --- Statcast ---
+        'exit velocity': ('EV', '出棒速度', 'Exit Velocity'),
+        '出棒速度': ('EV', '出棒速度', 'Exit Velocity'),
+        'launch angle': ('LA', '擊球仰角', 'Launch Angle'),
+        '仰角': ('LA', '擊球仰角', 'Launch Angle'),
+        'barrel': ('Barrel%', '強勁擊球率', 'Barrel Rate'),
+        'hard hit': ('HardHit%', '強擊球率', 'Hard Hit Rate'),
         
-        # 仰角
-        'launch angle': ('Launch Angle', '擊球仰角', 'launch angle'),
-        '仰角': ('Launch Angle', '擊球仰角', 'launch angle'),
-        'angle': ('Launch Angle', '擊球仰角', 'launch angle'),
-        
-        # 強勁擊球率
-        'barrel rate': ('Barrel Rate', '強勁擊球率', 'barrel rate'),
-        'barrel': ('Barrel Rate', '強勁擊球率', 'barrel rate'),
-        '強勁擊球': ('Barrel Rate', '強勁擊球率', 'barrel rate'),
-        
-        # 強擊球率
-        'hard hit': ('Hard-Hit Rate', '強擊球率', 'hard-hit rate'),
-        'hard-hit rate': ('Hard-Hit Rate', '強擊球率', 'hard-hit rate'),
-        '強擊球': ('Hard-Hit Rate', '強擊球率', 'hard-hit rate'),
-        
-        # 三振率
-        'strikeout': ('Strikeout Rate|K%', '三振率', 'strikeout rate'),
-        'k%': ('Strikeout Rate|K%', '三振率', 'strikeout rate'),
-        '三振': ('Strikeout Rate|K%', '三振率', 'strikeout rate'),
-        '三振率': ('Strikeout Rate|K%', '三振率', 'strikeout rate'),
-        
-        # 保送率
-        'walk': ('Walk Rate|BB%', '保送率', 'walk rate'),
-        'walk rate': ('Walk Rate|BB%', '保送率', 'walk rate'),
-        '保送': ('Walk Rate|BB%', '保送率', 'walk rate'),
-        '保送率': ('Walk Rate|BB%', '保送率', 'walk rate'),
-        'bb%': ('Walk Rate|BB%', '保送率', 'walk rate'),
-        
-        # Expected 統計
-        'expected batting average': ('Expected Batting Average', '預期打擊率', 'expected batting average'),
-        'expected ba': ('Expected Batting Average', '預期打擊率', 'expected batting average'),
-        'xba': ('Expected Batting Average', '預期打擊率', 'expected batting average'),
-        
-        'expected slugging': ('Expected Slugging', '預期長打率', 'expected slugging'),
-        'expected slg': ('Expected Slugging', '預期長打率', 'expected slugging'),
-        'xslg': ('Expected Slugging', '預期長打率', 'expected slugging'),
-        
-        # 滾地球率
-        'ground ball': ('Ground Ball Rate', '滾地球率', 'ground ball rate'),
-        'gb%': ('Ground Ball Rate', '滾地球率', 'ground ball rate'),
-        '滾地球': ('Ground Ball Rate', '滾地球率', 'ground ball rate'),
-        
-        # 飛球率
-        'fly ball': ('Fly Ball Rate', '飛球率', 'fly ball rate'),
-        'fb%': ('Fly Ball Rate', '飛球率', 'fly ball rate'),
-        '飛球': ('Fly Ball Rate', '飛球率', 'fly ball rate'),
-        
-        # 平飛球率
-        'line drive': ('Line Drive Rate', '平飛球率', 'line drive rate'),
-        'ld%': ('Line Drive Rate', '平飛球率', 'line drive rate'),
-        '平飛球': ('Line Drive Rate', '平飛球率', 'line drive rate'),
-        
-        # 薪資
-        'salary': ('Salary', '薪資', 'salary'),
-        '薪資': ('Salary', '薪資', 'salary'),
-        '年薪': ('Salary', '薪資', 'salary'),
-        
-        # 合約年數
-        'contract': ('Contract Years', '合約年數', 'contract years'),
-        'contract years': ('Contract Years', '合約年數', 'contract years'),
-        '合約': ('Contract Years', '合約年數', 'contract years'),
+        # --- 投手/其他 ---
+        'strikeout': ('K%', '三振率', 'Strikeout Rate'),
+        '三振': ('K%', '三振率', 'Strikeout Rate'),
+        'walk': ('BB%', '保送率', 'Walk Rate'),
+        '保送': ('BB%', '保送率', 'Walk Rate'),
+        'speed': ('Spd', '跑壘速度', 'Sprint Speed'),
     }
     
     # 查找查詢中的關鍵詞
@@ -171,19 +157,17 @@ def extract_answer_from_results(query, search_results, classification):
         if keyword in query_lower:
             # 嘗試多種格式匹配（更寬鬆的匹配）
             patterns = [
-                f'{pattern}[:\s]+([0-9]+\.?[0-9]*)',  # HR: 62 或 BA: 0.311
-                f'{pattern}\s*=\s*([0-9]+\.?[0-9]*)',  # HR = 62
-                f'{pattern}\s+([0-9]+\.?[0-9]*)',      # HR 62
-                f'{pattern}[:\s]*\(([0-9]+\.?[0-9]*)\)',  # HR: (62)
+                f'({pattern})[:\s]+([0-9]+\.?[0-9]*)',     
+                f'({pattern})\s*=\s*([0-9]+\.?[0-9]*)',
             ]
             
             for p in patterns:
                 match = re.search(p, full_text, re.IGNORECASE)
                 if match:
-                    stat_value = match.group(1)
+                    found_stat = match.group(1)
+                    stat_value = match.group(2)
                     stat_name_cn = name_cn
                     stat_name_en = name_en
-                    found_stat = pattern.split('|')[0]  # 取第一個作為顯示名稱
                     break
             
             if stat_value:
@@ -192,44 +176,11 @@ def extract_answer_from_results(query, search_results, classification):
     # 生成簡潔答案
     if stat_value:
         if language == 'zh':
-            # 根據不同統計類型使用不同的表達方式
-            if stat_name_cn in ['wOBA']:
-                answer = f"{player_name} 在 {season} 年的 {stat_name_cn} 為 {stat_value}"
-            elif stat_name_cn in ['wRC+', 'WAR']:
-                answer = f"{player_name} 在 {season} 年的 {stat_name_cn} 為 {stat_value}"
-            elif stat_name_cn in ['出棒初速', '擊球仰角']:
-                answer = f"{player_name} 在 {season} 年的{stat_name_cn}為 {stat_value}"
-            elif stat_name_cn in ['強勁擊球率', '強擊球率', '三振率', '保送率', '滾地球率', '飛球率', '平飛球率']:
-                answer = f"{player_name} 在 {season} 年的{stat_name_cn}為 {stat_value}"
-            elif stat_name_cn in ['預期打擊率', '預期長打率']:
-                answer = f"{player_name} 在 {season} 年的{stat_name_cn}為 {stat_value}"
-            elif stat_name_cn in ['薪資']:
-                # 格式化薪資顯示
-                answer = f"{player_name} 在 {season} 年的年薪為 ${stat_value}"
-            elif stat_name_cn in ['合約年數']:
-                answer = f"{player_name} 的合約為 {stat_value} 年"
-            else:
-                answer = f"{player_name} 在 {season} 年的{stat_name_cn}為 {stat_value}"
+            answer = f"{player_name} 在 {season} 年的 {stat_name_cn} 為 {stat_value}"
         else:
-            # 英文表達
-            if stat_name_en in ['wOBA', 'wRC+', 'WAR']:
-                answer = f"{player_name}'s {stat_name_en} in {season} was {stat_value}"
-            elif stat_name_en in ['exit velocity', 'launch angle']:
-                answer = f"{player_name}'s {stat_name_en} in {season} was {stat_value}"
-            elif stat_name_en in ['barrel rate', 'hard-hit rate', 'strikeout rate', 'walk rate']:
-                answer = f"{player_name}'s {stat_name_en} in {season} was {stat_value}"
-            elif stat_name_en in ['ground ball rate', 'fly ball rate', 'line drive rate']:
-                answer = f"{player_name}'s {stat_name_en} in {season} was {stat_value}"
-            elif stat_name_en in ['expected batting average', 'expected slugging']:
-                answer = f"{player_name}'s {stat_name_en} in {season} was {stat_value}"
-            elif stat_name_en == 'salary':
-                answer = f"{player_name}'s salary in {season} was ${stat_value}"
-            elif stat_name_en == 'contract years':
-                answer = f"{player_name}'s contract is for {stat_value} years"
-            else:
-                answer = f"{player_name}'s {stat_name_en} in {season} was {stat_value}"
+            answer = f"{player_name}'s {stat_name_en} in {season} was {stat_value}"
     else:
-        # 沒找到特定統計，給出簡潔說明
+        # 沒找到特定統計
         if language == 'zh':
             answer = f"根據檢索結果，找到 {player_name} {season} 年的數據。請在下方檢索詳情中查看具體統計數據。"
         else:
@@ -244,23 +195,25 @@ def query():
     
     data = request.json
     user_query = data.get('query', '')
-    mode = data.get('mode', 'rag')  # 'rag' 或 'llm'
+    mode = data.get('mode', 'rag')
+    history = data.get('history', [])
     
     if not user_query:
         return jsonify({'error': '查詢不能為空'}), 400
     
     try:
-        # 步驟 1: 查詢分類
+        # 1. 查詢分類
         classification = query_router.classify_query(user_query)
         
-        # 步驟 2: 獲取檢索參數
+        # 2. 檢索
         retrieval_params = query_router.get_retrieval_params(classification)
         k = retrieval_params['k']
-        
-        # 步驟 3: 執行檢索
+        # 如果是對話的簡短回應（如人名），可能需要更多結果以防漏掉
+        if len(user_query.split()) < 3: 
+            k = max(k, 8)
+            
         search_results = hybrid_search.auto_search(user_query, k=k)
         
-        # 格式化檢索結果
         formatted_results = []
         for i, result in enumerate(search_results[:5], 1):
             formatted_results.append({
@@ -271,17 +224,17 @@ def query():
                 'full_text': result['full_text']
             })
         
-        # 根據模式決定是否使用 LLM
+        # 3. 生成回答
         if mode == 'llm' and OLLAMA_AVAILABLE:
-            # 生成提示詞
+            # 將 history 傳入
             prompt = prompt_templates.get_prompt(
                 query_type=classification['query_type'],
                 query=user_query,
                 search_results=search_results,
-                language=classification['language']
+                language=classification['language'],
+                history=history 
             )
             
-            # 調用 Ollama
             try:
                 import ollama
                 response = ollama.chat(
@@ -292,10 +245,8 @@ def query():
                 
                 return jsonify({
                     'mode': 'llm',
-                    'query': user_query,
                     'classification': {
                         'type': classification['query_type'],
-                        'confidence': classification['confidence'],
                         'language': classification['language']
                     },
                     'search_results': formatted_results,
@@ -304,29 +255,24 @@ def query():
                 })
             
             except Exception as e:
-                # LLM 失敗，降級到純 RAG
+                # 降級處理
+                print(f"LLM Error: {e}")
+                extracted_answer = extract_answer_from_results(user_query, search_results, classification)
                 return jsonify({
                     'mode': 'rag',
-                    'query': user_query,
-                    'classification': {
-                        'type': classification['query_type'],
-                        'confidence': classification['confidence'],
-                        'language': classification['language']
-                    },
                     'search_results': formatted_results,
-                    'error': f'LLM 調用失敗，降級到純 RAG: {str(e)}'
+                    'answer': extracted_answer,
+                    'error': f'LLM 調用失敗: {str(e)}'
                 })
         
         else:
-            # 純 RAG 模式 - 提取答案
+            # 純 RAG 模式
             extracted_answer = extract_answer_from_results(user_query, search_results, classification)
             
             return jsonify({
                 'mode': 'rag',
-                'query': user_query,
                 'classification': {
                     'type': classification['query_type'],
-                    'confidence': classification['confidence'],
                     'language': classification['language']
                 },
                 'search_results': formatted_results,

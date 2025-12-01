@@ -8,595 +8,461 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        /* --- 基礎樣式 (共用) --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { text-align: center; color: white; margin-bottom: 20px; }
+        .header h1 { font-size: 2.2rem; margin-bottom: 5px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+        .header .subtitle { font-size: 1rem; opacity: 0.9; }
+        .main-card { background: white; border-radius: 16px; padding: 25px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); min-height: 80vh; display: flex; flex-direction: column; }
+        
+        /* 模式切換按鈕 */
+        .mode-selector { display: flex; gap: 15px; margin-bottom: 20px; justify-content: center; }
+        .mode-btn { padding: 10px 20px; border: 2px solid #e0e0e0; border-radius: 12px; background: white; cursor: pointer; transition: all 0.2s; min-width: 150px; text-align: center; }
+        .mode-btn:hover { transform: translateY(-2px); }
+        .mode-btn.active { border-color: #667eea; background: #667eea; color: white; }
+        .mode-btn .title { font-weight: 600; font-size: 1rem; }
+        .mode-btn .desc { font-size: 0.8rem; opacity: 0.8; margin-top: 2px; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
+        /* 狀態列 */
+        .status-bar { background: #f8f9fa; padding: 8px 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 20px; font-size: 0.85rem; justify-content: flex-end; }
+        .status-item { display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .status-dot.green { background: #4caf50; }
+        .status-dot.red { background: #f44336; }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
+        /* --- 純 RAG 模式專用樣式 (保持不變) --- */
+        .rag-container .query-section { margin-bottom: 25px; }
+        .rag-container .query-input { width: 100%; padding: 15px; border: 2px solid #e0e0e0; border-radius: 12px; font-size: 1rem; }
+        .rag-container .query-btn { width: 100%; padding: 15px; margin-top: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; font-size: 1.1rem; cursor: pointer; }
+        .rag-container .answer-section { background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-left: 4px solid #667eea; padding: 25px; border-radius: 12px; margin-top: 30px; }
+        .rag-container .answer-text { line-height: 1.8; color: #222; font-size: 1.05rem; background: white; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; margin-top: 15px; }
+        
+        /* 檢索詳情 (共用) */
+        .search-results { margin-top: 20px; padding-top: 20px; border-top: 1px dashed #e0e0e0; }
+        .search-results h3 { font-size: 1.1rem; color: #666; margin-bottom: 10px; }
+        details { border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background: #f8f9fa; }
+        .details-summary { cursor: pointer; font-weight: 600; color: #667eea; }
+        .result-item { background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; margin-top: 10px; }
+        .result-item-header { display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; }
+        .result-preview { font-size: 0.9rem; color: #555; }
+        .score { background: #eee; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; }
 
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-        }
-
-        .header .subtitle {
-            font-size: 1.1rem;
-            opacity: 0.9;
-        }
-
-        .main-card {
-            background: white;
-            border-radius: 16px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-
-        .mode-selector {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
-            flex-wrap: wrap;
-        }
-
-        .mode-btn {
+        /* --- LLM 聊天模式專用樣式 (新增) --- */
+        .chat-layout { display: flex; flex-direction: column; height: 100%; flex: 1; }
+        
+        .chat-window {
             flex: 1;
-            min-width: 200px;
-            padding: 15px 25px;
-            border: 2px solid #e0e0e0;
+            background: #f4f6f9;
             border-radius: 12px;
-            background: white;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-align: left;
-        }
-
-        .mode-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .mode-btn.active {
-            border-color: #667eea;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .mode-btn .title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-
-        .mode-btn .desc {
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-
-        .query-section {
-            margin-bottom: 25px;
-        }
-
-        .query-input {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-
-        .query-input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .query-btn {
-            width: 100%;
-            padding: 15px;
-            margin-top: 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-
-        .query-btn:hover:not(:disabled) {
-            transform: scale(1.02);
-        }
-
-        .query-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .examples {
-            margin-bottom: 25px;
-        }
-
-        .examples h3 {
-            font-size: 1.2rem;
-            margin-bottom: 15px;
-            color: #333;
-        }
-
-        .example-category {
-            margin-bottom: 20px;
-        }
-
-        .example-category h4 {
-            font-size: 1rem;
-            color: #666;
-            margin-bottom: 10px;
-        }
-
-        .example-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 10px;
-        }
-
-        .example-btn {
-            padding: 10px 15px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            background: #f8f9fa;
-            cursor: pointer;
-            text-align: left;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-        }
-
-        .example-btn:hover {
-            background: #e9ecef;
-            border-color: #667eea;
-        }
-
-        .results {
-            margin-top: 30px;
-        }
-
-        .result-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        .result-header h2 {
-            font-size: 1.5rem;
-            color: #333;
-        }
-
-        .classification {
-            display: inline-flex;
-            gap: 10px;
-        }
-
-        .badge {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .badge-type {
-            background: #e7f3ff;
-            color: #0066cc;
-        }
-
-        .badge-lang {
-            background: #f0f0f0;
-            color: #666;
-        }
-
-        .answer-section {
-            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
-            border-left: 4px solid #667eea;
-            padding: 25px;
-            border-radius: 12px;
-            margin-bottom: 30px;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
-        }
-
-        .answer-section h3 {
-            font-size: 1.3rem;
-            color: #333;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .answer-text {
-            line-height: 1.8;
-            color: #222;
-            font-size: 1.05rem;
-            white-space: pre-wrap;
-            background: white;
             padding: 20px;
-            border-radius: 8px;
+            overflow-y: auto;
+            max-height: 600px;
+            min-height: 400px;
             border: 1px solid #e0e0e0;
-        }
-
-        .search-results {
-            margin-top: 20px;
-        }
-
-        .search-results h3 {
-            font-size: 1.2rem;
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .toggle-hint {
-            font-size: 0.9rem;
-            color: #666;
-            margin-bottom: 10px;
-            font-style: italic;
-        }
-
-        details {
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 15px;
-            background: #f8f9fa;
-        }
-
-        .details-summary {
-            cursor: pointer;
-            font-weight: 600;
-            color: #667eea;
-            user-select: none;
-            padding: 10px;
-            margin: -15px -15px 0 -15px;
-            background: white;
-            border-radius: 8px 8px 0 0;
-            transition: background 0.2s;
-        }
-
-        .details-summary:hover {
-            background: #f8f9fa;
-        }
-
-        .details-content {
-            margin-top: 15px;
-        }
-
-        .result-item {
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            transition: all 0.2s;
-        }
-
-        .result-item:hover {
-            border-color: #667eea;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
-        }
-
-        .result-item-header {
+            margin-bottom: 20px;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
+            flex-direction: column;
+            gap: 20px;
         }
 
-        .player-name {
-            font-size: 1.1rem;
-            font-weight: 600;
+        .message-row {
+            display: flex;
+            align-items: flex-start;
+            max-width: 85%;
+        }
+
+        .message-row.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-row.bot {
+            align-self: flex-start;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .avatar.bot { background: white; margin-right: 12px; border: 2px solid #667eea; }
+        .avatar.user { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-left: 12px; color: white; }
+
+        .bubble {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 18px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            line-height: 1.6;
+            font-size: 1rem;
+            position: relative;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .message-row.bot .bubble {
+            border-top-left-radius: 4px;
+            background: white;
             color: #333;
         }
 
-        .score {
+        .message-row.user .bubble {
+            border-top-right-radius: 4px;
             background: #667eea;
             color: white;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 0.85rem;
         }
 
-        .result-preview {
-            color: #666;
-            line-height: 1.6;
-            font-size: 0.95rem;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-        }
-
-        .error {
-            background: #fee;
-            border-left: 4px solid #f44;
-            padding: 15px;
-            border-radius: 8px;
-            color: #c33;
-        }
-
-        .status-bar {
-            background: #f8f9fa;
-            padding: 12px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+        .chat-input-area {
             display: flex;
-            gap: 20px;
-            font-size: 0.9rem;
+            gap: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid #e0e0e0;
         }
 
-        .status-item {
+        .chat-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 10px;
+            font-size: 1rem;
+            resize: none;
+            max-height: 100px;
+        }
+
+        .send-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+        .send-btn:hover { transform: scale(1.1); }
+        .send-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        .loading-dots:after {
+            content: '.';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80%, 100% { content: ''; }
         }
 
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
+        .clear-chat { font-size: 0.8rem; color: #999; cursor: pointer; text-align: center; margin-top: 5px; }
+        .clear-chat:hover { color: #f44336; }
 
-        .status-dot.green {
-            background: #4caf50;
-        }
+        /* 範例按鈕樣式 (共用) */
+        .examples-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+        .ex-btn { font-size: 0.85rem; padding: 6px 12px; border: 1px solid #ddd; border-radius: 20px; background: #fff; cursor: pointer; color: #666; }
+        .ex-btn:hover { border-color: #667eea; color: #667eea; }
 
-        .status-dot.red {
-            background: #f44336;
-        }
-
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 1.8rem;
-            }
-            
-            .mode-selector {
-                flex-direction: column;
-            }
-            
-            .mode-btn {
-                min-width: 100%;
-            }
-            
-            .example-grid {
-                grid-template-columns: 1fr;
-            }
-        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         function App() {
             const [mode, setMode] = useState('rag');
             const [query, setQuery] = useState('');
             const [loading, setLoading] = useState(false);
-            const [result, setResult] = useState(null);
+            const [result, setResult] = useState(null); // 純 RAG 的結果
             const [error, setError] = useState(null);
             const [examples, setExamples] = useState({ rag_examples: [], llm_examples: [] });
             const [status, setStatus] = useState({ ollama_available: false, database_size: 0 });
+            
+            // 對話歷史
+            const [chatHistory, setChatHistory] = useState([]);
+            // LLM 模式下最新的參考資料
+            const [lastReferences, setLastReferences] = useState(null);
+            
+            const chatEndRef = useRef(null);
 
-            // 載入系統狀態
             useEffect(() => {
-                fetch('/api/status')
-                    .then(res => res.json())
-                    .then(data => setStatus(data))
-                    .catch(err => console.error('載入狀態失敗:', err));
-
-                fetch('/api/examples')
-                    .then(res => res.json())
-                    .then(data => setExamples(data))
-                    .catch(err => console.error('載入範例失敗:', err));
+                fetch('/api/status').then(res => res.json()).then(setStatus).catch(console.error);
+                fetch('/api/examples').then(res => res.json()).then(setExamples).catch(console.error);
             }, []);
+
+            // 自動捲動到對話底部
+            useEffect(() => {
+                if (mode === 'llm' && chatEndRef.current) {
+                    chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+                }
+            }, [chatHistory, loading, mode]);
+
+            const handleModeChange = (newMode) => {
+                setMode(newMode);
+                setQuery('');
+                setResult(null);
+                setError(null);
+            };
+
+            const clearHistory = () => {
+                if(confirm('確定要清除對話紀錄嗎？')) {
+                    setChatHistory([]);
+                    setLastReferences(null);
+                }
+            };
 
             const handleQuery = async () => {
                 if (!query.trim()) return;
-
+                const currentQuery = query;
+                setQuery(''); // 清空輸入框
                 setLoading(true);
                 setError(null);
-                setResult(null);
+
+                // 如果是 RAG 模式，清除舊結果
+                if (mode === 'rag') setResult(null);
+
+                // 如果是 LLM 模式，先顯示用戶問題
+                if (mode === 'llm') {
+                    setChatHistory(prev => [...prev, { role: 'user', content: currentQuery }]);
+                }
 
                 try {
+                    const payload = { 
+                        query: currentQuery, 
+                        mode,
+                        history: mode === 'llm' ? chatHistory : [] 
+                    };
+
                     const response = await fetch('/api/query', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ query, mode })
+                        body: JSON.stringify(payload)
                     });
 
                     const data = await response.json();
 
                     if (response.ok) {
-                        setResult(data);
+                        if (mode === 'llm') {
+                            setChatHistory(prev => [
+                                ...prev, 
+                                { role: 'assistant', content: data.answer }
+                            ]);
+                            setLastReferences(data.search_results);
+                        } else {
+                            setResult(data);
+                        }
                     } else {
-                        setError(data.error || '查詢失敗');
+                        throw new Error(data.error || '查詢失敗');
                     }
                 } catch (err) {
-                    setError('網路錯誤: ' + err.message);
+                    setError('錯誤: ' + err.message);
+                    if (mode === 'llm') {
+                        setChatHistory(prev => [...prev, { role: 'assistant', content: '發生錯誤: ' + err.message }]);
+                    }
                 } finally {
                     setLoading(false);
                 }
             };
 
-            const currentExamples = mode === 'llm' ? examples.llm_examples : examples.rag_examples;
+            // 渲染純 RAG 介面
+            const renderRagInterface = () => (
+                <div className="rag-container">
+                    <div className="query-section">
+                        <input
+                            type="text"
+                            className="query-input"
+                            placeholder="輸入查詢... 例如：Aaron Judge 2022年打了幾支全壘打？"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleQuery()}
+                        />
+                        <button className="query-btn" onClick={handleQuery} disabled={loading || !query.trim()}>
+                            {loading ? '查詢中...' : '🔍 查詢數據'}
+                        </button>
+                    </div>
+
+                    {/* RAG 範例 */}
+                    <div className="examples-grid">
+                        {examples.rag_examples.flatMap(cat => cat.queries).slice(0, 4).map((q, i) => (
+                            <button key={i} className="ex-btn" onClick={() => setQuery(q)}>{q}</button>
+                        ))}
+                    </div>
+
+                    {error && <div style={{color: 'red', marginTop: 20}}>❌ {error}</div>}
+
+                    {result && (
+                        <div>
+                            <div className="answer-section">
+                                <h3>✅ 查詢結果</h3>
+                                <div className="answer-text">{result.answer}</div>
+                            </div>
+                            
+                            <div className="search-results">
+                                <details>
+                                    <summary className="details-summary">查看 {result.search_results.length} 筆原始數據來源</summary>
+                                    <div>
+                                        {result.search_results.map((item, idx) => (
+                                            <div key={idx} className="result-item">
+                                                <div className="result-item-header">
+                                                    <span>#{item.rank} {item.player_id}</span>
+                                                    <span className="score">關聯度: {item.score}</span>
+                                                </div>
+                                                <div className="result-preview">{item.preview}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+
+            // 渲染 LLM 聊天介面
+            const renderLlmInterface = () => (
+                <div className="chat-layout">
+                    {/* 對話視窗 */}
+                    <div className="chat-window">
+                        {chatHistory.length === 0 && (
+                            <div style={{textAlign: 'center', color: '#888', marginTop: '50px'}}>
+                                <h3>🤖 MLB 數據分析助手</h3>
+                                <p>我可以分析球員表現、比較數據，或是協助您查找特定紀錄。</p>
+                                <div style={{marginTop: 20}}>
+                                    {examples.llm_examples.flatMap(cat => cat.queries).slice(0, 3).map((q, i) => (
+                                        <div key={i} style={{marginBottom: 8}}>
+                                            <button className="ex-btn" onClick={() => {
+                                                setQuery(q);
+                                                // 這裡稍微取巧，直接觸發
+                                                setTimeout(() => document.querySelector('.send-btn').click(), 100);
+                                            }}>{q}</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {chatHistory.map((msg, idx) => (
+                            <div key={idx} className={`message-row ${msg.role === 'user' ? 'user' : 'bot'}`}>
+                                <div className={`avatar ${msg.role === 'user' ? 'user' : 'bot'}`}>
+                                    {msg.role === 'user' ? '🧑‍💻' : '🤖'}
+                                </div>
+                                <div className="bubble">
+                                    {msg.content}
+                                </div>
+                            </div>
+                        ))}
+
+                        {loading && (
+                            <div className="message-row bot">
+                                <div className="avatar bot">🤖</div>
+                                <div className="bubble">
+                                    <span className="loading-dots">分析中</span>
+                                </div>
+                            </div>
+                        )}
+                        <div ref={chatEndRef} />
+                    </div>
+
+                    {/* 輸入區 */}
+                    <div className="chat-input-area">
+                        <textarea
+                            className="chat-input"
+                            placeholder="輸入問題..."
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            onKeyPress={(e) => {
+                                if(e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleQuery();
+                                }
+                            }}
+                            rows={1}
+                        />
+                        <button className="send-btn" onClick={handleQuery} disabled={loading || !query.trim()}>
+                            ➤
+                        </button>
+                    </div>
+                    {chatHistory.length > 0 && (
+                        <div className="clear-chat" onClick={clearHistory}>🗑️ 清除對話紀錄</div>
+                    )}
+
+                    {/* LLM 模式的最新參考資料 (固定在底部) */}
+                    {lastReferences && (
+                        <div className="search-results" style={{marginTop: 10, fontSize: '0.9rem'}}>
+                            <details>
+                                <summary className="details-summary" style={{fontSize: '0.9rem'}}>
+                                    📁 最新回答參考資料 ({lastReferences.length} 筆)
+                                </summary>
+                                <div style={{maxHeight: '200px', overflowY: 'auto'}}>
+                                    {lastReferences.map((item, idx) => (
+                                        <div key={idx} className="result-item" style={{padding: '8px'}}>
+                                            <div className="result-item-header">
+                                                <span>{item.player_id}</span>
+                                            </div>
+                                            <div className="result-preview" style={{fontSize: '0.8rem'}}>
+                                                {item.preview}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </details>
+                        </div>
+                    )}
+                </div>
+            );
 
             return (
                 <div className="container">
                     <div className="header">
                         <h1>⚾ MLB Team Manager Assistant</h1>
-                        <div className="subtitle">
-                            棒球數據檢索與分析系統 | Baseball Data Retrieval & Analysis
-                        </div>
+                        <div className="subtitle">棒球數據檢索與分析系統</div>
                     </div>
 
                     <div className="main-card">
                         <div className="status-bar">
                             <div className="status-item">
                                 <div className={`status-dot ${status.ollama_available ? 'green' : 'red'}`}></div>
-                                <span>
-                                    LLM: {status.ollama_available ? `${status.ollama_model}` : '❌ 不可用'}
-                                </span>
+                                <span>LLM: {status.ollama_available ? status.ollama_model : '不可用'}</span>
                             </div>
                             <div className="status-item">
                                 <div className="status-dot green"></div>
-                                <span>資料庫: {status.database_size?.toLocaleString()} 筆記錄</span>
+                                <span>DB: {status.database_size?.toLocaleString()}</span>
                             </div>
                         </div>
 
                         <div className="mode-selector">
-                            <button
+                            <button 
                                 className={`mode-btn ${mode === 'rag' ? 'active' : ''}`}
-                                onClick={() => setMode('rag')}
+                                onClick={() => handleModeChange('rag')}
                             >
                                 <div className="title">🔍 純 RAG 模式</div>
-                                <div className="desc">直接返回檢索結果，適合精確數據查詢</div>
+                                <div className="desc">精確數據查詢</div>
                             </button>
-                            <button
+                            <button 
                                 className={`mode-btn ${mode === 'llm' ? 'active' : ''}`}
-                                onClick={() => setMode('llm')}
+                                onClick={() => handleModeChange('llm')}
                                 disabled={!status.ollama_available}
                             >
-                                <div className="title">🤖 RAG + LLM 模式</div>
-                                <div className="desc">
-                                    使用 Ollama 生成自然語言回答，適合複雜分析
-                                    {!status.ollama_available && ' (Ollama 不可用)'}
-                                </div>
+                                <div className="title">💬 AI 對話模式</div>
+                                <div className="desc">自然語言分析</div>
                             </button>
                         </div>
 
-                        <div className="query-section">
-                            <input
-                                type="text"
-                                className="query-input"
-                                placeholder="輸入你的查詢... 例如：Aaron Judge 2022年打了幾支全壘打？"
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                onKeyPress={(e) => e.key === 'Enter' && handleQuery()}
-                            />
-                            <button
-                                className="query-btn"
-                                onClick={handleQuery}
-                                disabled={loading || !query.trim()}
-                            >
-                                {loading ? '查詢中...' : '🔍 查詢'}
-                            </button>
-                        </div>
-
-                        <div className="examples">
-                            <h3>💡 預設查詢範例</h3>
-                            {currentExamples.map((category, idx) => (
-                                <div key={idx} className="example-category">
-                                    <h4>{category.category}</h4>
-                                    <div className="example-grid">
-                                        {category.queries.map((q, qIdx) => (
-                                            <button
-                                                key={qIdx}
-                                                className="example-btn"
-                                                onClick={() => setQuery(q)}
-                                            >
-                                                {q}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {loading && (
-                            <div className="loading">
-                                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>⏳</div>
-                                <div>查詢中，請稍候...</div>
-                            </div>
-                        )}
-
-                        {error && (
-                            <div className="error">
-                                ❌ {error}
-                            </div>
-                        )}
-
-                        {result && !loading && (
-                            <div className="results">
-                                <div className="result-header">
-                                    <h2>📊 查詢結果</h2>
-                                    <div className="classification">
-                                        <span className="badge badge-type">
-                                            {result.classification.type}
-                                        </span>
-                                        <span className="badge badge-lang">
-                                            {result.classification.language === 'zh' ? '中文' : 'English'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {result.answer && (
-                                    <div className="answer-section">
-                                        <h3>
-                                            {result.mode === 'llm' ? '🤖 AI 回答' : '✅ 答案'}
-                                            {result.model && ` (${result.model})`}
-                                        </h3>
-                                        <div className="answer-text">{result.answer}</div>
-                                    </div>
-                                )}
-
-                                <div className="search-results">
-                                    <h3>📁 參考數據 (Top {result.search_results.length})</h3>
-                                    <div className="toggle-hint">
-                                        點擊展開查看詳細檢索結果
-                                    </div>
-                                    <details>
-                                        <summary className="details-summary">
-                                            顯示/隱藏檢索詳情
-                                        </summary>
-                                        <div className="details-content">
-                                            {result.search_results.map((item, idx) => (
-                                                <div key={idx} className="result-item">
-                                                    <div className="result-item-header">
-                                                        <div className="player-name">
-                                                            #{item.rank} {item.player_id}
-                                                        </div>
-                                                        <div className="score">
-                                                            分數: {item.score}
-                                                        </div>
-                                                    </div>
-                                                    <div className="result-preview">
-                                                        {item.preview}...
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </details>
-                                </div>
-                            </div>
-                        )}
+                        {mode === 'rag' ? renderRagInterface() : renderLlmInterface()}
                     </div>
                 </div>
             );

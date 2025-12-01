@@ -78,9 +78,105 @@ class HybridSearch:
                 raise ValueError(f"數據驗證失敗: text_chunks 包含非字典元素 {type(sample)}")
             if 'player_id' not in sample or 'text_chunk' not in sample:
                 raise ValueError(f"數據驗證失敗: 缺少必要欄位 {list(sample.keys())}")
-        
-        print("\n✅ 混合檢索系統初始化完成！")
+            
+        self.term_mapping = {
+            # --- 基礎打擊 ---
+            'batting average': 'AVG',
+            'average': 'AVG',
+            'avg': 'AVG',
+            '打擊率': 'AVG',
+            
+            'home runs': 'HR',
+            'hr': 'HR',
+            '全壘打': 'HR',
+            
+            'rbi': 'RBI',
+            '打點': 'RBI',
+            
+            'hits': 'H',
+            '安打': 'H',
+            
+            'obp': 'OBP',
+            '上壘率': 'OBP',
+            'slg': 'SLG',
+            '長打率': 'SLG',
+            'ops': 'OPS',
+            
+            # --- 進階打擊 ---
+            'woba': 'wOBA',
+            'xwoba': 'xwOBA',
+            'wrc+': 'wRC+',
+            'wrc': 'wRC+',
+            'iso': 'ISO',
+            'babip': 'BABIP',
+            'war': 'WAR',
+            
+            # --- Statcast (擊球品質) ---
+            'exit velocity': 'EV',
+            'exit velo': 'EV',
+            'ev': 'EV',
+            '出棒速度': 'EV',
+            '初速': 'EV',
+            'max ev': 'maxEV',
+            '極速': 'maxEV',
+            
+            'launch angle': 'LA',
+            'la': 'LA',
+            '仰角': 'LA',
+            '擊球仰角': 'LA',
+            
+            'barrel': 'Barrel%',
+            'barrel rate': 'Barrel%',
+            'barrel%': 'Barrel%',
+            '強勁擊球': 'Barrel%',
+            
+            'hard hit': 'HardHit%',
+            'hard hit rate': 'HardHit%',
+            'hardhit%': 'HardHit%',
+            '強擊球': 'HardHit%',
+            
+            # --- 投手/三振/保送/跑壘 ---
+            'strikeout': 'K%',
+            'strikeout rate': 'K%',
+            'k%': 'K%',
+            '三振': 'K%',
+            '三振率': 'K%',
+            
+            'walk': 'BB%',
+            'walk rate': 'BB%',
+            'bb%': 'BB%',
+            '保送': 'BB%',
+            
+            'speed': 'Spd',
+            'spd': 'Spd',
+            '速度': 'Spd',
+            '跑速': 'Spd',
+            
+            'off': 'Off',
+            'def': 'Def',
+        }
+        print("關鍵字映射表已加載 (基於原始 CSV 欄位)")
+        print("\n混合檢索系統初始化完成！")
         print("=" * 80)
+
+    def _expand_query(self, query: str) -> str:
+        """
+        擴展查詢：將自然語言關鍵字轉換為 CSV 欄位名稱
+        例如："Judge 三振率" -> "Judge 三振率 K%"
+        """
+        query_lower = query.lower()
+        expanded_terms = []
+        
+        for key, value in self.term_mapping.items():
+            if key in query_lower:
+                expanded_terms.append(value)
+        
+        if expanded_terms:
+            # 去重並添加到查詢中
+            new_terms = " ".join(set(expanded_terms))
+            print(f"  🔍 查詢擴展: '{query}' -> 加上 '{new_terms}'")
+            return f"{query} {new_terms}"
+        return query
     
     def _load_vector_search(self, data_path: str):
         """載入向量檢索組件"""
@@ -195,9 +291,11 @@ class HybridSearch:
         Returns:
             結果列表
         """
+        # 擴展查詢
+        expanded_query = self._expand_query(query)
         
         # Vector Search
-        vector_ids, vector_scores = self.vector_search(query, k=100)
+        vector_ids, vector_scores = self.vector_search(expanded_query, k=100)
         vector_scores_norm = self.normalize_scores(vector_scores)
         
         # BM25 Search
