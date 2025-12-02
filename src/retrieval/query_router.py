@@ -22,7 +22,7 @@ PLAYER_ALIAS = {
     "前田健太": "Kenta Maeda",
 }
 
-# ⭐ 常見英文球員名（姓氏）
+# 常見英文球員名（姓氏）
 COMMON_PLAYERS = [
     "Ohtani", "Judge", "Trout", "Betts", "Acuna", "Freeman", "Soto", 
     "Tatis", "Harper", "Turner", "Devers", "Altuve", "Vladdy", "Olson",
@@ -105,63 +105,14 @@ class QueryRouter:
         return None
 
     # ------------------------------------------------------------
-    # ⭐ 抽取球員名稱（支援中英文）
+    # 抽取球員名稱（中文 → 英文）
     # ------------------------------------------------------------
     def extract_players(self, query: str):
         players = []
-        
-        # 1. 檢查中文別名
         for zh, en in PLAYER_ALIAS.items():
             if zh in query:
-                if en not in players:
-                    players.append(en)
-        
-        # 2. 檢查英文名稱（大小寫不敏感）
-        query_lower = query.lower()
-        for name in COMMON_PLAYERS:
-            # 完整匹配 "Ohtani" 或 "ohtani"
-            if name.lower() in query_lower:
-                # 找到對應的完整名稱
-                full_name = self._get_full_name(name)
-                if full_name and full_name not in players:
-                    players.append(full_name)
-        
-        # 3. 檢查完整英文名 "Shohei Ohtani"
-        for full_name in PLAYER_ALIAS.values():
-            if full_name.lower() in query_lower and full_name not in players:
-                players.append(full_name)
-        
+                players.append(en)
         return players
-    
-    def _get_full_name(self, last_name: str):
-        """根據姓氏返回完整名稱"""
-        name_map = {
-            "ohtani": "Shohei Ohtani",
-            "judge": "Aaron Judge",
-            "trout": "Mike Trout",
-            "betts": "Mookie Betts",
-            "acuna": "Ronald Acuna Jr.",
-            "freeman": "Freddie Freeman",
-            "soto": "Juan Soto",
-            "tatis": "Fernando Tatis Jr.",
-            "harper": "Bryce Harper",
-            "turner": "Trea Turner",
-            "devers": "Rafael Devers",
-            "altuve": "Jose Altuve",
-            "vladdy": "Vladimir Guerrero Jr.",
-            "olson": "Matt Olson",
-            "yamamoto": "Yoshinobu Yamamoto",
-            "darvish": "Yu Darvish",
-            "suzuki": "Seiya Suzuki",
-            "kikuchi": "Yusei Kikuchi",
-            "maeda": "Kenta Maeda",
-            "verlander": "Justin Verlander",
-            "cole": "Gerrit Cole",
-            "scherzer": "Max Scherzer",
-            "degrom": "Jacob deGrom",
-            "kershaw": "Clayton Kershaw",
-        }
-        return name_map.get(last_name.lower())
 
     # ------------------------------------------------------------
     # 投打方向（intent）
@@ -177,25 +128,44 @@ class QueryRouter:
 
     # ------------------------------------------------------------
     # Query Type（factual / ranking / comparison / analysis）
+    # v6 改進：更完整的 Comparison 判斷
     # ------------------------------------------------------------
-    def detect_query_type(self, query, players, metric, top_n):
+    def detect_query_type(self, query, players, metric, top_n, seasons):
+        """
+        改進版 Query Type 判斷
+        
+        新增邏輯：
+        1. 多位球員 (players >= 2) → comparison
+        2. 單球員多賽季 (players == 1 and seasons >= 2) → comparison
+        3. 有「比」字 + 至少 1 個球員 → comparison（不要求 metric）
+        """
         q = query.lower()
 
-        # Ranking
+        # 1️⃣ Ranking（優先級最高）
         if top_n or ("前" in query and "名" in query):
             return "ranking"
 
         if "top" in q and re.search(r"top\s*\d+", q):
             return "ranking"
 
-        # Comparison
-        if "比" in query and len(players) >= 1 and metric:
+        # 2️⃣ Comparison（優先級第二）
+        # 改進 1: 多位球員
+        if len(players) >= 2:
+            return "comparison"
+        
+        # 改進 2: 單球員多賽季
+        if len(players) == 1 and len(seasons) >= 2:
+            return "comparison"
+        
+        # 改進 3: 有「比」字 + 至少 1 個球員（不要求 metric）
+        if "比" in query and len(players) >= 1:
             return "comparison"
 
+        # 其他比較關鍵字
         if "vs" in q or "compare" in q:
             return "comparison"
 
-        # 如果只問單項數據：也算 factual
+        # 3️⃣ Factual（預設）
         return "factual"
 
     # ------------------------------------------------------------
@@ -219,8 +189,8 @@ class QueryRouter:
         # top_n
         top_n = self.extract_top_n(query)
 
-        # Query Type
-        qtype = self.detect_query_type(query, players, metric, top_n)
+        # Query Type（傳入 seasons 參數）
+        qtype = self.detect_query_type(query, players, metric, top_n, seasons)
 
         # Type Boost（給 Hybrid Search）
         if intent == "pitching":
@@ -270,22 +240,24 @@ class QueryRouter:
 if __name__ == "__main__":
     qr = QueryRouter()
     
+    print("=" * 60)
+    print("Query Router v6 測試")
+    print("=" * 60)
+    
     test_queries = [
-        "大谷 2023 投球",
-        "Ohtani 2023 pitching",
-        "Judge vs Ohtani HR 2024",
-        "比較 Judge 和 Ohtani 的打擊",
+        "Yamamoto 防禦率",
         "2024 全壘打前 10 名",
+        "Ohtani 跟 Judge 打擊率比較",
+        "Ohtani 2022 2023 全壘打",
+        "Judge power 表現",
+        "大谷 山本 比較",
     ]
     
-    print("=" * 60)
-    print("Query Router 測試")
-    print("=" * 60)
-    
     for q in test_queries:
+        print(f"\n查詢: {q}")
         routed = qr.route(q)
-        print(f"\nQuery: {q}")
+        print(f"  Type: {routed['query_type']}")
         print(f"  Players: {routed['players']}")
         print(f"  Seasons: {routed['seasons']}")
-        print(f"  Intent: {routed['intent']}")
-        print(f"  Type: {routed['query_type']}")
+        print(f"  Metric: {routed['metric']}")
+        print(f"  Top N: {routed['top_n']}")

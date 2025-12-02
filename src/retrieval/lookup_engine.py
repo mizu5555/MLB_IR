@@ -31,7 +31,7 @@ class LookupEngine:
         if self.data_path.exists():
             with open(self.data_path, "r", encoding="utf-8") as f:
                 self.data = json.load(f)
-            print(f"[LookupEngine] Loaded {len(self.data)} records.")
+            print(f"✅ LookupEngine Loaded {len(self.data)} records.")
         else:
             print(f"⚠️ Warning: Training data not found at {self.data_path}")
 
