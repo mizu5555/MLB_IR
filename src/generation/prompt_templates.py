@@ -1,33 +1,26 @@
 # ============================================================
 # 事實增強生成 (Fact-Consistency Enhanced Generation)
 #
-# 提供 3 種回覆模板：
-#   1. factual_answer
-#   2. comparison_answer
-#   3. ranking_answer
-#
-# 支援中／英語 + 解說員語氣、球探語氣
+# 改進版：更自然、人性化的回答風格
 # ============================================================
 
 
 # ------------------------------------------------------------
-# 通用系統 Prompt（System Prompt）
+# 通用系統 Prompt
 # ------------------------------------------------------------
 SYSTEM_PROMPT = """
-You are an MLB analytics expert.  
-You must answer strictly based on the supplied FACT BLOCK.  
-Never hallucinate numbers not in the FACT BLOCK.  
+You are a friendly MLB analytics expert and baseball enthusiast.  
+You provide clear, engaging answers based on the supplied data.
+Be conversational and enthusiastic about baseball.
+Never hallucinate numbers not in the FACT BLOCK.
 """
 
 
 # ------------------------------------------------------------
-# Factual 查詢
+# Factual 查詢 - 改進版
 # ------------------------------------------------------------
 FACTUAL_TEMPLATE = """
-You are an MLB analytics expert.
-
-ANSWER LANGUAGE: {language}
-STYLE: {style}
+You are a knowledgeable baseball analyst having a conversation.
 
 USER QUESTION:
 {query}
@@ -35,30 +28,27 @@ USER QUESTION:
 FACT BLOCK (ONLY USE THESE FACTS):
 {facts}
 
-TASK:
-Provide a precise stat-based answer.
-Do NOT invent numbers.
-Do NOT guess missing data.
+INSTRUCTIONS:
+- Answer in {language}
+- Be conversational and friendly
+- For player stats, provide context and interpretation
+- Use baseball terminology naturally
+- Compare to league averages when relevant
+- Keep it concise (2-4 sentences for simple queries)
+- NEVER invent numbers
 
-For single-player factual questions, include:
-- Player name
-- Season
-- Team
-- The exact metric value
-- 1–2 lines of short explanation (if needed)
+Example good answer:
+"Shohei Ohtani had an impressive 2023 season on the mound. His 3.14 ERA was well above league average, and he struck out 11.39 batters per nine innings. The WHIP of 1.06 shows excellent control."
 
-Begin your answer.
+Begin your answer:
 """
 
 
 # ------------------------------------------------------------
-# Comparison 問題
+# Comparison 問題 - 改進版
 # ------------------------------------------------------------
 COMPARISON_TEMPLATE = """
-You are an MLB analytics analyst.
-
-ANSWER LANGUAGE: {language}
-STYLE: {style}
+You are a baseball analyst comparing players naturally.
 
 USER QUESTION:
 {query}
@@ -66,29 +56,26 @@ USER QUESTION:
 FACT BLOCK (ONLY USE THESE FACTS):
 {facts}
 
-TASK:
-The user wants comparison results (e.g., who is better than Ohtani in HR).
+INSTRUCTIONS:
+- Answer in {language}
+- Start with a direct comparison
+- Highlight key differences
+- Provide context (e.g., "both elite players, but...")
+- Keep it conversational
+- NEVER invent numbers
 
-Rules:
-- List all players meeting the condition.
-- Sort from highest to lowest (metric).
-- Include exact values from FACT BLOCK.
-- Provide a short analytical summary at the end.
-- Do NOT invent missing players.
-- If no players qualify, clearly state so.
+Example good answer:
+"Both Aaron Judge and Shohei Ohtani had monster seasons. Judge led with 62 home runs compared to Ohtani's 44, but Ohtani's versatility as a two-way player makes the comparison fascinating. Judge's 1.111 OPS was slightly higher than Ohtani's 1.066."
 
-Begin your answer.
+Begin your answer:
 """
 
 
 # ------------------------------------------------------------
-# Ranking（Top N）問題
+# Ranking（Top N）問題 - 改進版
 # ------------------------------------------------------------
 RANKING_TEMPLATE = """
-You are an MLB analyst.
-
-ANSWER LANGUAGE: {language}
-STYLE: {style}
+You are a baseball analyst presenting rankings conversationally.
 
 USER QUESTION:
 {query}
@@ -96,16 +83,50 @@ USER QUESTION:
 FACT BLOCK (ONLY USE THESE FACTS):
 {facts}
 
-TASK:
-Provide a ranked list based on the metric.
-Rules:
-- Output exactly N players (if N players exist).
-- Include player, team, season, metric value.
-- Use bullet points or table format.
-- End with a short summary.
-- NO hallucinated numbers.
+INSTRUCTIONS:
+- Answer in {language}
+- Start with "Here are the top X players for [metric] in [year]:"
+- Present rankings clearly (1. Name - Team - Stat)
+- Add a brief closing comment about the leaders
+- Keep it engaging
+- NEVER invent numbers
 
-Begin your answer.
+Example good answer:
+"Here are the top 5 home run hitters in 2024:
+
+1. Aaron Judge (NYY) - 62 HR
+2. Kyle Schwarber (PHI) - 46 HR
+3. Pete Alonso (NYM) - 46 HR
+4. Shohei Ohtani (LAA) - 44 HR
+5. Matt Olson (ATL) - 54 HR
+
+Judge's 62 homers were historic, breaking the AL single-season record."
+
+Begin your answer:
+"""
+
+
+# ------------------------------------------------------------
+# Analysis 分析型 - 新增
+# ------------------------------------------------------------
+ANALYSIS_TEMPLATE = """
+You are a baseball analyst providing insightful analysis.
+
+USER QUESTION:
+{query}
+
+FACT BLOCK (ONLY USE THESE FACTS):
+{facts}
+
+INSTRUCTIONS:
+- Answer in {language}
+- Provide thoughtful analysis
+- Connect stats to performance
+- Offer context and perspective
+- Be engaging and informative
+- NEVER invent numbers
+
+Begin your analysis:
 """
 
 
@@ -114,24 +135,29 @@ Begin your answer.
 # ------------------------------------------------------------
 def format_fact_block(records):
     """
-    將 hybrid_search + lookup_engine 的結果轉成乾淨 Fact Block，
-    保證 LLM 不會幻覺。
+    將檢索結果轉成乾淨 Fact Block
     """
     lines = []
     for r in records:
         metric_lines = []
         stats = r.get("stats", {})
 
-        for k, v in stats.items():
-            metric_lines.append(f"{k}: {v}")
+        # 只選擇重要統計（避免過長）
+        if r.get("type") == "pitcher":
+            key_stats = ["ERA", "WHIP", "K/9", "FIP", "W", "L", "IP", "SO"]
+        else:
+            key_stats = ["AVG", "HR", "RBI", "OPS", "wRC+", "SLG", "OBP", "AB"]
+
+        for k in key_stats:
+            if k in stats:
+                metric_lines.append(f"{k}: {stats[k]}")
 
         block = f"""
-[Record]
-player: {r['player_name']}
-team: {r['team']}
-season: {r['season']}
-type: {r['type']}
-record_key: {r['record_key']}
+[Player Stats]
+Name: {r.get('player_name', 'Unknown')}
+Team: {r.get('team', 'N/A')}
+Season: {r.get('season', 'N/A')}
+Type: {r.get('type', 'N/A')}
 {chr(10).join(metric_lines)}
 """
         lines.append(block.strip())
@@ -147,7 +173,6 @@ def build_factual_prompt(query, facts, language="zh", style="analyst"):
         query=query,
         facts=facts,
         language=language,
-        style=style,
     )
 
 
@@ -156,7 +181,6 @@ def build_comparison_prompt(query, facts, language="zh", style="analyst"):
         query=query,
         facts=facts,
         language=language,
-        style=style,
     )
 
 
@@ -165,19 +189,26 @@ def build_ranking_prompt(query, facts, language="zh", style="analyst"):
         query=query,
         facts=facts,
         language=language,
-        style=style,
+    )
+
+
+def build_analysis_prompt(query, facts, language="zh", style="analyst"):
+    return ANALYSIS_TEMPLATE.format(
+        query=query,
+        facts=facts,
+        language=language,
     )
 
 
 # ------------------------------------------------------------
-# 語氣設定
+# 語氣設定（保留但簡化）
 # ------------------------------------------------------------
 STYLE_PRESETS = {
-    "analyst": "客觀解說、數據導向、簡潔清楚，如 ESPN 或 MLB Network 分析師。",
-    "scout": "球探語氣，著重工具組、動作機制、潛力、表現評估。",
+    "analyst": "專業分析師，客觀清晰",
+    "enthusiast": "熱情球迷，生動有趣",
 }
 
 LANG_PRESETS = {
-    "zh": "中文回答",
-    "en": "English Answer",
+    "zh": "繁體中文",
+    "en": "English",
 }

@@ -4,61 +4,40 @@ import json
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-# --------------------------------------------------------
-# 使用成功的引入方式
-# --------------------------------------------------------
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.join(current_dir, '../..')
 sys.path.insert(0, project_root)
 
 try:
-    # Retrieval 模組
     from src.retrieval.query_router import QueryRouter
     from src.retrieval.hybrid_search import HybridSearch
     from src.retrieval.lookup_engine import LookupEngine
-    
-    # Generation 模組
     from src.generation.prompt_templates import (
         format_fact_block,
         build_factual_prompt,
         build_comparison_prompt,
         build_ranking_prompt,
-        STYLE_PRESETS
     )
     LLM_AVAILABLE = True
-    print("✅ 成功載入 LLM generation 模組")
+    print("✅ 成功載入模組")
 except ImportError as e:
-    print(f"⚠️ Warning: LLM prompt templates not found - {e}")
-    print("⚠️ LLM mode will be disabled")
+    print(f"⚠️ 模組載入失敗: {e}")
     LLM_AVAILABLE = False
 
-# --------------------------------------------------------
-# Flask 初始化
-# --------------------------------------------------------
-app = Flask(
-    __name__,
-    static_folder="static",
-    static_url_path="/static",
-)
+app = Flask(__name__, static_folder="static", static_url_path="/static")
 CORS(app)
 
-# 全域共享物件
-print("🔧 正在初始化檢索系統...")
+print("🔧 初始化檢索系統...")
 router = QueryRouter()
 searcher = HybridSearch()
 lookup = LookupEngine()
 print("✅ 檢索系統初始化完成")
 
-PROJECT_ROOT = project_root
 STATIC_DIR = os.path.join(current_dir, "static")
-INDEX_HTML = "index.html"
 
-# --------------------------------------------------------
-# 檢查 Ollama 是否可用
-# --------------------------------------------------------
+# Ollama
 OLLAMA_AVAILABLE = False
 OLLAMA_MODEL = None
-
 try:
     import ollama
     models = ollama.list()
@@ -67,193 +46,81 @@ try:
         OLLAMA_MODEL = models.models[0].model if hasattr(models.models[0], 'model') else 'llama3.2'
         if ':' in OLLAMA_MODEL:
             OLLAMA_MODEL = OLLAMA_MODEL.split(':')[0]
-        print(f"✅ Ollama 可用，模型: {OLLAMA_MODEL}")
-    else:
-        print("⚠️ Ollama 未檢測到模型")
-except Exception as e:
-    print(f"⚠️ Ollama 不可用: {e}")
-    print("⚠️ 僅支援純 RAG 模式")
+        print(f"✅ Ollama 可用: {OLLAMA_MODEL}")
+except:
+    print("⚠️ Ollama 不可用")
 
-
-# --------------------------------------------------------
-# 工具函式：序列化檢索結果
-# --------------------------------------------------------
-def serialize_hit(rec: dict) -> dict:
-    """統一整理單筆檢索結果"""
+def serialize_hit(rec: dict, idx: int) -> dict:
+    """序列化檢索結果 - 完整 stats debug"""
     if rec is None:
         return {}
-
-    return {
-        "id": rec.get("id") or rec.get("record_key"),
+    
+    stats = rec.get("stats", {})
+    
+    result = {
+        "id": rec.get("record_key") or rec.get("id"),
+        "record_key": rec.get("record_key") or rec.get("id"),
         "player_name": rec.get("player_name"),
+        "player_id": rec.get("player_id"),
         "season": rec.get("season"),
         "team": rec.get("team"),
         "type": rec.get("type"),
         "score": float(rec.get("score", 0.0)),
-        "preview": (
-            rec.get("raw_text")
-            or rec.get("clean_text")
-            or rec.get("embedding_text")
-            or rec.get("keyword_text")
-            or ""
-        )[:400],
-        "stats": rec.get("stats", {}),
+        "preview": (rec.get("raw_text") or rec.get("clean_text") or rec.get("embedding_text") or "")[:400],
+        "stats": stats,
     }
-
-
-# --------------------------------------------------------
-# 相容不同版本的 search 調用
-# --------------------------------------------------------
-def call_search_compatible(searcher, query, routed, topk):
-    """
-    相容不同版本的 HybridSearch.search() 方法
     
-    嘗試順序：
-    1. search(query, routed=routed, topk=topk) - 新版本
-    2. search(query, routed, topk) - 位置參數版本
-    3. search(query, routed) - 不支援 topk 的版本（使用預設值）
-    """
-    try:
-        # 嘗試新版本（關鍵字參數）
-        return searcher.search(query, routed=routed, topk=topk)
-    except TypeError as e:
-        if "topk" in str(e):
-            try:
-                # 嘗試位置參數版本
-                return searcher.search(query, routed, topk)
-            except TypeError:
-                try:
-                    # 嘗試不帶 topk 的版本
-                    print(f"  ⚠️ HybridSearch.search() 不支援 topk 參數，使用預設值")
-                    results = searcher.search(query, routed)
-                    # 手動截取結果
-                    if isinstance(results, list) and len(results) > topk:
-                        return results[:topk]
-                    return results
-                except Exception as e2:
-                    print(f"  ❌ Search 調用失敗: {e2}")
-                    raise
-        else:
-            raise
+    # ⭐ 完整 stats debug
+    stats_keys = list(stats.keys())
+    print(f"   序列化 {idx+1}: {result['player_name']} {result['season']} {result['type']} "
+          f"score={result['score']:.4f}")
+    print(f"      → stats 包含 {len(stats_keys)} 個欄位: {stats_keys[:10]}{'...' if len(stats_keys) > 10 else ''}")
+    
+    return result
 
-
-# --------------------------------------------------------
-# LLM 生成函式（使用本地 Ollama）
-# --------------------------------------------------------
 def generate_llm_response(query, routed, hits, history=None):
-    """
-    使用本地 Ollama 生成回答
-    """
     if not OLLAMA_AVAILABLE:
-        return "⚠️ LLM 模式需要 Ollama 運行。請確認 Ollama 服務已啟動。"
-    
+        return "⚠️ LLM 需要 Ollama"
     try:
         import ollama
-        
-        # 準備 fact block
-        fact_block = format_fact_block(hits) if hits else "No data found."
-        
-        # 根據查詢類型選擇 prompt
+        fact_block = format_fact_block(hits) if hits else "No data"
         qtype = routed.get("query_type", "factual")
-        
         if qtype == "ranking":
             prompt = build_ranking_prompt(query, fact_block)
         elif qtype == "comparison":
             prompt = build_comparison_prompt(query, fact_block)
         else:
             prompt = build_factual_prompt(query, fact_block)
-        
-        # 構建訊息
         messages = []
-        
-        # 加入歷史對話
         if history:
             for msg in history:
-                messages.append({
-                    "role": msg["role"],
-                    "content": msg["content"]
-                })
-        
-        # 加入當前查詢
-        messages.append({
-            "role": "user",
-            "content": prompt
-        })
-        
-        # 呼叫 Ollama API
-        print(f"🤖 使用 Ollama 模型: {OLLAMA_MODEL}")
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=messages
-        )
-        
+                messages.append({"role": msg["role"], "content": msg["content"]})
+        messages.append({"role": "user", "content": prompt})
+        response = ollama.chat(model=OLLAMA_MODEL, messages=messages)
         return response['message']['content']
-        
     except Exception as e:
-        print(f"❌ LLM generation error: {e}")
-        return f"⚠️ LLM 生成時發生錯誤：{str(e)}"
+        return f"⚠️ LLM 錯誤：{str(e)}"
 
-
-# --------------------------------------------------------
-# 根目錄：前端單頁
-# --------------------------------------------------------
 @app.route("/", methods=["GET"])
 def index():
-    return send_from_directory(STATIC_DIR, INDEX_HTML)
+    return send_from_directory(STATIC_DIR, "index.html")
 
+@app.route("/api/health", methods=["GET"])
+def api_health():
+    return jsonify({
+        "ok": True,
+        "status": "ready",
+        "llm_available": OLLAMA_AVAILABLE,
+        "llm_model": OLLAMA_MODEL if OLLAMA_AVAILABLE else None
+    })
 
-# --------------------------------------------------------
-# Router debug API
-# --------------------------------------------------------
-@app.route("/api/router", methods=["POST"])
-def api_router():
-    try:
-        data = request.get_json(force=True) or {}
-        query = (data.get("query") or "").strip()
-
-        if not query:
-            return jsonify({"ok": False, "error": "query 不可為空"}), 400
-
-        routed = router.route(query)
-        return jsonify({"ok": True, "query": query, "routed": routed})
-    
-    except Exception as e:
-        print(f"❌ Router error: {e}")
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-# --------------------------------------------------------
-# 主查詢 API
-# --------------------------------------------------------
 @app.route("/api/query", methods=["POST"])
 def api_query():
-    """
-    主要查詢 API
-    
-    Request:
-        {
-            "query": "大谷 2023 投球",
-            "mode": "rag" | "llm",
-            "topk": 10,
-            "history": [...]
-        }
-    
-    Response:
-        {
-            "ok": true,
-            "query": "...",
-            "routed": {...},
-            "classification": {...},
-            "search_results": [...],
-            "hits": [...],
-            "answer": "..."
-        }
-    """
     try:
         data = request.get_json(force=True) or {}
         query = (data.get("query") or "").strip()
         mode = data.get("mode", "rag")
-        topk = int(data.get("topk", 10))
+        topk = int(data.get("topk", 5))
         history = data.get("history", [])
 
         if not query:
@@ -265,169 +132,101 @@ def api_query():
         metric = routed.get("metric")
         top_n = routed.get("top_n") or topk
 
-        print(f"\n📊 Query: {query}")
-        print(f"   Type: {qtype}, Metric: {metric}, Mode: {mode}")
+        print(f"\n{'='*60}")
+        print(f"📊 Query: {query}")
+        print(f"   Type: {qtype}, Metric: {metric}, Mode: {mode}, TopK: {top_n}")
 
-        # 2) 執行檢索（使用相容性包裝）
+        # 2) Hybrid Search - ⭐ 正確傳遞參數
         normalized = routed.get("normalized_query") or query
         
         try:
-            raw_hits = call_search_compatible(searcher, normalized, routed, top_n)
-        except Exception as search_error:
-            print(f"❌ Search error: {search_error}")
+            raw_hits = searcher.search(
+                normalized,
+                routed=routed,
+                k=top_n,
+                filter_players=routed.get("players"),      # ⭐ 明確傳遞
+                filter_seasons=routed.get("seasons"),      # ⭐ 明確傳遞
+                boost_type=routed.get("type_boost")        # ⭐ 關鍵！
+            )
+            print(f"\n🔍 HybridSearch 返回 {len(raw_hits)} 筆結果:")
+            for i, h in enumerate(raw_hits[:5]):
+                print(f"   {i+1}. {h.get('player_name')} {h.get('season')} {h.get('type')} "
+                      f"score={h.get('score', 0):.4f}")
+        except Exception as e:
+            print(f"❌ Search 錯誤: {e}")
             import traceback
             traceback.print_exc()
             raw_hits = []
 
-        # 轉換為前端格式
+        # 3) 序列化
+        print(f"\n🔄 開始序列化 {len(raw_hits)} 筆結果:")
         hits = []
-        for h in raw_hits:
+        for i, h in enumerate(raw_hits):
             if isinstance(h, dict):
-                hits.append(serialize_hit(h))
-            elif isinstance(h, tuple) and len(h) >= 2:
-                # (record_id, score, preview) 格式
-                try:
-                    rec = searcher.get_record(h[0]) if hasattr(searcher, 'get_record') else {}
-                    if rec:
-                        rec['score'] = h[1]
-                        hits.append(serialize_hit(rec))
-                except Exception as e:
-                    print(f"  ⚠️ 無法序列化結果 {h[0]}: {e}")
+                serialized = serialize_hit(h, i)
+                hits.append(serialized)
 
-        # 3) 處理結構化查詢
-        structured = None
-        
-        if qtype == "ranking" and metric:
-            try:
-                season = routed["seasons"][0] if routed.get("seasons") else 2024
-                ranking_results = lookup.rank(
-                    season=season,
-                    metric=metric,
-                    top_n=top_n
-                )
-                structured = {
-                    "kind": "ranking",
-                    "metric": metric,
-                    "season": season,
-                    "results": [
-                        {
-                            "player": r[0]["player_name"],
-                            "value": r[1],
-                            "season": r[0]["season"],
-                            "team": r[0]["team"]
-                        }
-                        for r in ranking_results
-                    ]
-                }
-            except Exception as e:
-                print(f"⚠️ Ranking error: {e}")
-
-        elif qtype == "comparison" and metric and routed.get("players"):
-            try:
-                season = routed["seasons"][0] if routed.get("seasons") else 2024
-                base_record = lookup.find_player_record(
-                    routed["players"][0],
-                    season
-                )
-                if base_record:
-                    comp_results = lookup.find_relative_players(
-                        base_record=base_record,
-                        metric=metric,
-                        season=season
-                    )
-                    structured = {
-                        "kind": "comparison",
-                        "metric": metric,
-                        "baseline": routed["players"][0],
-                        "season": season,
-                        "results": [
-                            {
-                                "player": r[0]["player_name"],
-                                "value": r[1],
-                                "season": r[0]["season"],
-                                "team": r[0]["team"]
-                            }
-                            for r in comp_results[:top_n]
-                        ]
-                    }
-            except Exception as e:
-                print(f"⚠️ Comparison error: {e}")
+        print(f"\n✅ 序列化完成: {len(hits)} 筆")
+        print(f"   前3名: {[(h['player_name'], h['type'], h['score']) for h in hits[:3]]}")
 
         # 4) 生成回答
         answer = ""
+        structured = None
         
         if mode == "llm" and OLLAMA_AVAILABLE:
-            # LLM 模式：使用本地 Ollama
             answer = generate_llm_response(query, routed, raw_hits, history)
         else:
-            # RAG 模式：改進回答
-            if structured:
-                if structured["kind"] == "ranking":
-                    answer = f"根據 {structured['metric']} 排名前 {len(structured['results'])} 名：\n"
-                    for i, r in enumerate(structured['results'], 1):
-                        answer += f"{i}. {r['player']} ({r['team']}) - {r['value']}\n"
-                
-                elif structured["kind"] == "comparison":
-                    answer = f"在 {structured['metric']} 方面比 {structured['baseline']} 更好的球員有 {len(structured['results'])} 位。"
-            
-            elif hits:
+            # RAG 模式
+            if hits:
                 if len(hits) == 1:
-                    # 單一結果：顯示詳細資訊
                     h = hits[0]
                     answer = f"找到 {h['player_name']} 在 {h['season']} 年的數據（{h['team']}）。\n\n"
-                    
-                    # 顯示關鍵統計
                     stats = h.get('stats', {})
                     if stats:
                         if h.get('type') == 'pitcher':
-                            # 投手關鍵數據
-                            answer += f"投球表現：\n"
-                            if 'ERA' in stats:
-                                answer += f"- 防禦率 (ERA): {stats['ERA']}\n"
-                            if 'WHIP' in stats:
-                                answer += f"- WHIP: {stats['WHIP']}\n"
-                            if 'K%' in stats:
-                                answer += f"- 三振率 (K%): {stats['K%']}\n"
-                            if 'FIP' in stats:
-                                answer += f"- FIP: {stats['FIP']}\n"
+                            answer += "投球表現：\n"
+                            for key in ['ERA', 'WHIP', 'K%', 'FIP']:
+                                if key in stats:
+                                    answer += f"- {key}: {stats[key]}\n"
                         else:
-                            # 打者關鍵數據
-                            answer += f"打擊表現：\n"
-                            if 'AVG' in stats:
-                                answer += f"- 打擊率 (AVG): {stats['AVG']}\n"
-                            if 'HR' in stats:
-                                answer += f"- 全壘打 (HR): {stats['HR']}\n"
-                            if 'OPS' in stats:
-                                answer += f"- OPS: {stats['OPS']}\n"
-                            if 'wRC+' in stats:
-                                answer += f"- wRC+: {stats['wRC+']}\n"
+                            answer += "打擊表現：\n"
+                            for key in ['AVG', 'HR', 'OPS', 'wRC+']:
+                                if key in stats:
+                                    answer += f"- {key}: {stats[key]}\n"
+                
                 elif len(hits) <= 3:
-                    # 少量結果：顯示所有球員名稱
                     answer = f"找到 {len(hits)} 筆相關數據：\n\n"
                     for i, h in enumerate(hits, 1):
                         answer += f"{i}. {h['player_name']} ({h['season']} {h['team']}) - {h['type']}\n"
+                        stats = h.get('stats', {})
+                        if stats:
+                            key_stats = []
+                            if h.get('type') == 'pitcher':
+                                for k in ['ERA', 'WHIP', 'K%']:
+                                    if k in stats:
+                                        key_stats.append(f"{k}: {stats[k]}")
+                            else:
+                                for k in ['AVG', 'HR', 'OPS']:
+                                    if k in stats:
+                                        key_stats.append(f"{k}: {stats[k]}")
+                            if key_stats:
+                                answer += f"   {' | '.join(key_stats)}\n"
+                
                 else:
-                    # 多筆結果：顯示前 3 名
-                    answer = f"找到 {len(hits)} 筆相關數據。前 3 名最相關的結果：\n\n"
+                    answer = f"找到 {len(hits)} 筆相關數據。前 {min(3, len(hits))} 名最相關的結果：\n\n"
                     for i, h in enumerate(hits[:3], 1):
                         answer += f"{i}. {h['player_name']} ({h['season']} {h['team']}) - {h['type']}"
-                        
-                        # 顯示一個關鍵指標
                         stats = h.get('stats', {})
                         if stats:
                             if h.get('type') == 'pitcher' and 'ERA' in stats:
                                 answer += f" | ERA: {stats['ERA']}"
                             elif 'HR' in stats:
                                 answer += f" | HR: {stats['HR']}"
-                            elif 'OPS' in stats:
-                                answer += f" | OPS: {stats['OPS']}"
                         answer += "\n"
-                    
                     answer += f"\n（共 {len(hits)} 筆結果，請展開「檢索來源」查看完整資料）"
             else:
-                answer = "沒有找到相關數據，請嘗試不同的查詢。"
+                answer = "沒有找到相關數據"
 
-        # 5) 回傳結果
         response = {
             "ok": True,
             "query": query,
@@ -440,50 +239,23 @@ def api_query():
             "answer": answer,
         }
 
+        print(f"\n✅ 返回 {len(hits)} 筆結果給前端")
+        print(f"{'='*60}\n")
+
         return jsonify(response)
 
     except Exception as e:
         import traceback
-        print(f"❌ API Error: {e}")
+        print(f"❌ API 錯誤: {e}")
         print(traceback.format_exc())
         return jsonify({"ok": False, "error": str(e)}), 500
 
-
-# --------------------------------------------------------
-# 健康檢查
-# --------------------------------------------------------
-@app.route("/api/health", methods=["GET"])
-def api_health():
-    return jsonify({
-        "ok": True,
-        "status": "ready",
-        "llm_available": OLLAMA_AVAILABLE,
-        "llm_model": OLLAMA_MODEL if OLLAMA_AVAILABLE else None
-    })
-
-
-# --------------------------------------------------------
-# 錯誤處理
-# --------------------------------------------------------
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({"ok": False, "error": "Not Found"}), 404
-
-
-@app.errorhandler(500)
-def server_error(e):
-    return jsonify({"ok": False, "error": "Internal Server Error"}), 500
-
-
 if __name__ == "__main__":
     print("\n" + "="*60)
-    print("🚀 MLB Team Manager Assistant API Server")
+    print("🚀 MLB Team Manager Assistant")
     print("="*60)
-    print(f"📁 Project Root: {PROJECT_ROOT}")
-    print(f"🌐 Static Files: {STATIC_DIR}")
-    print(f"🤖 Ollama Available: {OLLAMA_AVAILABLE}")
+    print(f"🤖 Ollama: {OLLAMA_AVAILABLE}")
     if OLLAMA_AVAILABLE:
-        print(f"🤖 Ollama Model: {OLLAMA_MODEL}")
+        print(f"🤖 Model: {OLLAMA_MODEL}")
     print("="*60 + "\n")
-    
     app.run(host="0.0.0.0", port=8000, debug=True)

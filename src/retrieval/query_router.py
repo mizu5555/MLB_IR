@@ -1,5 +1,5 @@
 # ============================================================
-# Query Router — 強化 Ranking / Comparison / Metric 抽取版
+# Query Router — 強化版（支援中英文球員名）
 # ============================================================
 
 import re
@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 # ------------------------------------------------------------
-# 中文 → 英文球員名稱映射（你可在這邊補充）
+# 中文 → 英文球員名稱映射
 # ------------------------------------------------------------
 PLAYER_ALIAS = {
     "大谷": "Shohei Ohtani",
@@ -16,7 +16,19 @@ PLAYER_ALIAS = {
     "山本": "Yoshinobu Yamamoto",
     "山本由伸": "Yoshinobu Yamamoto",
     "鈴木誠也": "Seiya Suzuki",
+    "達比修": "Yu Darvish",
+    "達比修有": "Yu Darvish",
+    "菊池雄星": "Yusei Kikuchi",
+    "前田健太": "Kenta Maeda",
 }
+
+# ⭐ 常見英文球員名（姓氏）
+COMMON_PLAYERS = [
+    "Ohtani", "Judge", "Trout", "Betts", "Acuna", "Freeman", "Soto", 
+    "Tatis", "Harper", "Turner", "Devers", "Altuve", "Vladdy", "Olson",
+    "Yamamoto", "Darvish", "Suzuki", "Kikuchi", "Maeda",
+    "Verlander", "Cole", "Scherzer", "deGrom", "Kershaw"
+]
 
 # ------------------------------------------------------------
 # Metric 映射（Ranking + Comparison 使用）
@@ -93,14 +105,63 @@ class QueryRouter:
         return None
 
     # ------------------------------------------------------------
-    # 抽取球員名稱（中文 → 英文）
+    # ⭐ 抽取球員名稱（支援中英文）
     # ------------------------------------------------------------
     def extract_players(self, query: str):
         players = []
+        
+        # 1. 檢查中文別名
         for zh, en in PLAYER_ALIAS.items():
             if zh in query:
-                players.append(en)
+                if en not in players:
+                    players.append(en)
+        
+        # 2. 檢查英文名稱（大小寫不敏感）
+        query_lower = query.lower()
+        for name in COMMON_PLAYERS:
+            # 完整匹配 "Ohtani" 或 "ohtani"
+            if name.lower() in query_lower:
+                # 找到對應的完整名稱
+                full_name = self._get_full_name(name)
+                if full_name and full_name not in players:
+                    players.append(full_name)
+        
+        # 3. 檢查完整英文名 "Shohei Ohtani"
+        for full_name in PLAYER_ALIAS.values():
+            if full_name.lower() in query_lower and full_name not in players:
+                players.append(full_name)
+        
         return players
+    
+    def _get_full_name(self, last_name: str):
+        """根據姓氏返回完整名稱"""
+        name_map = {
+            "ohtani": "Shohei Ohtani",
+            "judge": "Aaron Judge",
+            "trout": "Mike Trout",
+            "betts": "Mookie Betts",
+            "acuna": "Ronald Acuna Jr.",
+            "freeman": "Freddie Freeman",
+            "soto": "Juan Soto",
+            "tatis": "Fernando Tatis Jr.",
+            "harper": "Bryce Harper",
+            "turner": "Trea Turner",
+            "devers": "Rafael Devers",
+            "altuve": "Jose Altuve",
+            "vladdy": "Vladimir Guerrero Jr.",
+            "olson": "Matt Olson",
+            "yamamoto": "Yoshinobu Yamamoto",
+            "darvish": "Yu Darvish",
+            "suzuki": "Seiya Suzuki",
+            "kikuchi": "Yusei Kikuchi",
+            "maeda": "Kenta Maeda",
+            "verlander": "Justin Verlander",
+            "cole": "Gerrit Cole",
+            "scherzer": "Max Scherzer",
+            "degrom": "Jacob deGrom",
+            "kershaw": "Clayton Kershaw",
+        }
+        return name_map.get(last_name.lower())
 
     # ------------------------------------------------------------
     # 投打方向（intent）
@@ -208,11 +269,23 @@ class QueryRouter:
 # CLI 測試
 if __name__ == "__main__":
     qr = QueryRouter()
-    while True:
-        q = input("\n輸入查詢（或 Enter 離開）：")
-        if not q.strip():
-            break
-
+    
+    test_queries = [
+        "大谷 2023 投球",
+        "Ohtani 2023 pitching",
+        "Judge vs Ohtani HR 2024",
+        "比較 Judge 和 Ohtani 的打擊",
+        "2024 全壘打前 10 名",
+    ]
+    
+    print("=" * 60)
+    print("Query Router 測試")
+    print("=" * 60)
+    
+    for q in test_queries:
         routed = qr.route(q)
-        print("\n--- Routed Result ---")
-        print(json.dumps(routed, indent=2, ensure_ascii=False))
+        print(f"\nQuery: {q}")
+        print(f"  Players: {routed['players']}")
+        print(f"  Seasons: {routed['seasons']}")
+        print(f"  Intent: {routed['intent']}")
+        print(f"  Type: {routed['query_type']}")
