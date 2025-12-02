@@ -152,7 +152,7 @@ def serialize_hit(rec: dict, idx: int) -> dict:
 
 def generate_rag_answer(query, hits, routed):
     """
-    生成 RAG 回答（改進版 - 選項 A：直接比較式）
+    生成 RAG 回答
     """
     if not hits:
         return "沒有找到相關數據。"

@@ -597,28 +597,6 @@ cat results/metrics_log.jsonl
 
 ---
 
-## 🔄 數據更新
-
-如果需要更新數據或重建索引：
-
-```bash
-# 1. 更新 data/raw_adv/ 中的數據文件
-
-cd src/datapreprocess
-
-python rebuild_data.py
-python step0_parse_text_chunks.py
-python step1_build_training_data.py
-python step2_build_vector_index.py
-python step3_build_bm25_index.py
-
-# 3. 重啟服務器
-cd src/web
-python app.py
-```
-
----
-
 ## 🎯 開發計劃
 
 ### 已完成
@@ -638,6 +616,7 @@ python app.py
 ### 計劃中
 
 - [ ] LLM 對話式回答優化
+- [ ] 加入人工標記評分
 - [ ] 更多賽季數據
 - [ ] 獎項數據整合（MVP, Gold Glove...）
 - [ ] 合約與薪資資訊
@@ -658,6 +637,9 @@ python app.py
 ---
 
 ## 📝 版本歷史
+
+**當前版本**: v5.0.1  
+**最後更新**: 2024-12-02
 
 **v5.0**
 - 新增完整評估指標系統
@@ -687,8 +669,3 @@ python app.py
 ## 📄 授權
 
 本專案為課程作業，僅供學術用途。
-
----
-
-**當前版本**: v5.0.1  
-**最後更新**: 2024-12-02
