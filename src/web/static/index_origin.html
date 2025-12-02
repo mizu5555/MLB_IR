@@ -57,24 +57,11 @@
             gap: 20px; 
             font-size: 0.85rem; 
             justify-content: flex-end; 
-            align-items: center;
         }
         .status-item { display: flex; align-items: center; gap: 6px; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; }
         .status-dot.green { background: #4caf50; }
         .status-dot.red { background: #f44336; }
-        
-        /* Debug 按鈕樣式 */
-        .debug-toggle {
-            cursor: pointer;
-            padding: 4px 10px;
-            border-radius: 4px;
-            transition: background 0.2s;
-            user-select: none;
-            border: 1px solid transparent;
-        }
-        .debug-toggle:hover { background: #e2e8f0; }
-        .debug-toggle.active { background: #fee2e2; color: #c53030; border-color: #feb2b2; }
 
         /* --- RAG 模式樣式 --- */
         .rag-container .query-section { margin-bottom: 25px; }
@@ -144,40 +131,9 @@
         .result-preview { font-size: 0.9rem; color: #555; }
         .score { background: #eee; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; }
 
-        /* --- Debug 面板樣式 --- */
-        .debug-panel {
-            background: #2d3748;
-            color: #e2e8f0;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 20px;
-            font-family: monospace;
-            font-size: 0.85rem;
-            border: 1px solid #4a5568;
-        }
-        .debug-panel h4 {
-            color: #fff;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #4a5568;
-            padding-bottom: 5px;
-        }
-        .debug-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        .debug-label { color: #63b3ed; font-weight: bold; }
-        .debug-json {
-            background: #1a202c;
-            padding: 10px;
-            border-radius: 4px;
-            overflow-x: auto;
-            color: #90cdf4;
-        }
-
         /* --- LLM 聊天模式樣式 --- */
         .chat-layout { display: flex; flex-direction: column; height: 100%; flex: 1; }
+        
         .chat-window {
             flex: 1;
             background: #f4f6f9;
@@ -192,38 +148,142 @@
             flex-direction: column;
             gap: 20px;
         }
-        .message-row { display: flex; align-items: flex-start; max-width: 85%; }
-        .message-row.user { align-self: flex-end; flex-direction: row-reverse; }
-        .message-row.bot { align-self: flex-start; }
-        .avatar {
-            width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            font-size: 1.4rem; flex-shrink: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+
+        .message-row {
+            display: flex;
+            align-items: flex-start;
+            max-width: 85%;
         }
+
+        .message-row.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-row.bot {
+            align-self: flex-start;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
         .avatar.bot { background: white; margin-right: 12px; border: 2px solid #667eea; }
         .avatar.user { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-left: 12px; color: white; }
+
         .bubble {
-            background: white; padding: 15px 20px; border-radius: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            line-height: 1.6; font-size: 1rem; position: relative; white-space: pre-wrap; word-wrap: break-word;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 18px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            line-height: 1.6;
+            font-size: 1rem;
+            position: relative;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
-        .message-row.bot .bubble { border-top-left-radius: 4px; background: white; color: #333; }
-        .message-row.user .bubble { border-top-right-radius: 4px; background: #667eea; color: white; }
-        
-        .chat-input-area { display: flex; gap: 10px; background: white; padding: 10px; border-radius: 12px; border: 1px solid #e0e0e0; }
-        .chat-input { flex: 1; border: none; outline: none; padding: 10px; font-size: 1rem; resize: none; max-height: 100px; }
+
+        .message-row.bot .bubble {
+            border-top-left-radius: 4px;
+            background: white;
+            color: #333;
+        }
+
+        .message-row.user .bubble {
+            border-top-right-radius: 4px;
+            background: #667eea;
+            color: white;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .chat-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 10px;
+            font-size: 1rem;
+            resize: none;
+            max-height: 100px;
+        }
+
         .send-btn {
-            background: #667eea; color: white; border: none; border-radius: 50%; width: 45px; height: 45px;
-            cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; font-size: 1.2rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+            font-size: 1.2rem;
         }
         .send-btn:hover { transform: scale(1.1); }
         .send-btn:disabled { background: #ccc; cursor: not-allowed; }
-        .loading-dots:after { content: '.'; animation: dots 1.5s steps(5, end) infinite; }
-        @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
-        .clear-chat { font-size: 0.8rem; color: #999; cursor: pointer; text-align: center; margin-top: 5px; }
+
+        .loading-dots:after {
+            content: '.';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80%, 100% { content: ''; }
+        }
+
+        .clear-chat { 
+            font-size: 0.8rem; 
+            color: #999; 
+            cursor: pointer; 
+            text-align: center; 
+            margin-top: 5px; 
+        }
         .clear-chat:hover { color: #f44336; }
-        .ex-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 8px 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; }
-        .ex-btn:hover { background: #667eea; color: white; border-color: #667eea; }
-        .empty-state { text-align: center; color: #888; margin-top: 50px; }
-        .empty-state h3 { margin-bottom: 10px; }
+
+        /* 範例按鈕 */
+        .ex-btn {
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        .ex-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        /* 空狀態 */
+        .empty-state {
+            text-align: center;
+            color: #888;
+            margin-top: 50px;
+        }
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -238,10 +298,6 @@
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState(null);
             
-            // Debug 模式
-            const [showDebug, setShowDebug] = useState(false);
-            const [debugData, setDebugData] = useState(null);
-
             // RAG 模式狀態
             const [result, setResult] = useState(null);
             
@@ -304,19 +360,14 @@
                         throw new Error(data.error || '查詢失敗');
                     }
 
-                    // 儲存 Debug 資訊
-                    setDebugData({
-                        routed: data.routed,
-                        structured: data.structured,
-                        mode: data.mode
-                    });
-
                     if (mode === 'rag') {
+                        // RAG 模式：顯示結果
                         setResult({
                             answer: data.answer,
                             search_results: data.search_results || data.hits || []
                         });
                     } else {
+                        // LLM 模式：加入對話歷史
                         const newHistory = [
                             ...chatHistory,
                             { role: 'user', content: query.trim() },
@@ -324,7 +375,7 @@
                         ];
                         setChatHistory(newHistory);
                         setLastReferences(data.search_results || data.hits || []);
-                        setQuery(''); 
+                        setQuery(''); // 清空輸入框
                     }
 
                 } catch (err) {
@@ -335,57 +386,21 @@
                 }
             };
 
+            // 切換模式
             const handleModeChange = (newMode) => {
                 setMode(newMode);
                 setQuery('');
                 setResult(null);
                 setError(null);
-                setDebugData(null);
+                // LLM 模式切換時不清除歷史記錄
             };
 
+            // 清除對話記錄
             const clearHistory = () => {
                 if (confirm('確定要清除所有對話記錄嗎？')) {
                     setChatHistory([]);
                     setLastReferences(null);
-                    setDebugData(null);
                 }
-            };
-
-            // 渲染 Debug 面板
-            const renderDebugPanel = () => {
-                if (!showDebug || !debugData || !debugData.routed) return null;
-                const { routed, structured, mode } = debugData;
-                
-                return (
-                    <div className="debug-panel">
-                        <h4>🔧 Debug Info: Query Router</h4>
-                        <div className="debug-grid">
-                            <div><span className="debug-label">Query Type:</span> {routed.query_type}</div>
-                            <div><span className="debug-label">Intent:</span> {routed.intent}</div>
-                            <div><span className="debug-label">Metric:</span> {routed.metric || 'N/A'}</div>
-                            <div><span className="debug-label">Season:</span> {routed.seasons?.join(', ') || 'N/A'}</div>
-                            <div><span className="debug-label">Target Players:</span> {routed.players?.join(', ') || 'None'}</div>
-                            <div><span className="debug-label">Execution Mode:</span> {mode}</div>
-                        </div>
-                        
-                        {structured && (
-                            <div style={{marginTop: 15}}>
-                                <h4>📊 Debug Info: Structured Lookup</h4>
-                                <div className="debug-grid">
-                                    <div><span className="debug-label">Kind:</span> {structured.kind}</div>
-                                    <div><span className="debug-label">Results:</span> {structured.results?.length || 0} items</div>
-                                </div>
-                            </div>
-                        )}
-
-                        <details style={{marginTop: 15, border: 'none', background: 'transparent', padding: 0}}>
-                            <summary style={{color: '#63b3ed', cursor: 'pointer'}}>📄 View Full Router Response JSON</summary>
-                            <pre className="debug-json" style={{marginTop: 10}}>
-                                {JSON.stringify(debugData, null, 2)}
-                            </pre>
-                        </details>
-                    </div>
-                );
             };
 
             // 渲染 RAG 介面
@@ -398,9 +413,17 @@
                             placeholder="輸入查詢，例如：大谷 2023 投球、2024 全壘打前 10 名"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && !loading && handleQuery()}
+                            onKeyPress={(e) => {
+                                if (e.key === 'Enter' && !loading) {
+                                    handleQuery();
+                                }
+                            }}
                         />
-                        <button className="query-btn" onClick={handleQuery} disabled={loading || !query.trim()}>
+                        <button 
+                            className="query-btn" 
+                            onClick={handleQuery}
+                            disabled={loading || !query.trim()}
+                        >
                             {loading ? '查詢中...' : '🔍 查詢'}
                         </button>
                     </div>
@@ -414,9 +437,6 @@
                                 <div className="answer-text">{result.answer}</div>
                             </div>
                             
-                            {/* 在這裡插入 Debug 面板 */}
-                            {renderDebugPanel()}
-                            
                             {result.search_results && result.search_results.length > 0 && (
                                 <div className="search-results">
                                     <details>
@@ -427,10 +447,17 @@
                                             {result.search_results.map((item, idx) => (
                                                 <div key={idx} className="result-item">
                                                     <div className="result-item-header">
-                                                        <span>{item.player_name || item.player_id || item.id} {item.season && `(${item.season})`}</span>
-                                                        <span className="score">Score: {typeof item.score === 'number' ? item.score.toFixed(3) : 'N/A'}</span>
+                                                        <span>
+                                                            {item.player_name || item.player_id || item.id} 
+                                                            {item.season && ` (${item.season})`}
+                                                        </span>
+                                                        <span className="score">
+                                                            Score: {typeof item.score === 'number' ? item.score.toFixed(3) : 'N/A'}
+                                                        </span>
                                                     </div>
-                                                    <div className="result-preview">{item.preview || item.text_preview || ''}</div>
+                                                    <div className="result-preview">
+                                                        {item.preview || item.text_preview || item.embedding_text || ''}
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
@@ -445,15 +472,22 @@
             // 渲染 LLM 聊天介面
             const renderLlmInterface = () => (
                 <div className="chat-layout">
+                    {/* 對話視窗 */}
                     <div className="chat-window">
                         {chatHistory.length === 0 && !loading && (
                             <div className="empty-state">
                                 <h3>🤖 MLB 數據分析助手</h3>
                                 <p>我可以分析球員表現、比較數據，或是協助您查找特定紀錄。</p>
                                 <div style={{marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10}}>
-                                    <button className="ex-btn" onClick={() => setQuery("大谷 2023 投球表現如何？")}>大谷 2023 投球表現如何？</button>
-                                    <button className="ex-btn" onClick={() => setQuery("誰是 2024 全壘打王？")}>誰是 2024 全壘打王？</button>
-                                    <button className="ex-btn" onClick={() => setQuery("比較 Judge 和 Ohtani 的打擊數據")}>比較 Judge 和 Ohtani 的打擊數據</button>
+                                    <button className="ex-btn" onClick={() => setQuery("大谷 2023 投球表現如何？")}>
+                                        大谷 2023 投球表現如何？
+                                    </button>
+                                    <button className="ex-btn" onClick={() => setQuery("誰是 2024 全壘打王？")}>
+                                        誰是 2024 全壘打王？
+                                    </button>
+                                    <button className="ex-btn" onClick={() => setQuery("比較 Judge 和 Ohtani 的打擊數據")}>
+                                        比較 Judge 和 Ohtani 的打擊數據
+                                    </button>
                                 </div>
                             </div>
                         )}
@@ -463,44 +497,72 @@
                                 <div className={`avatar ${msg.role === 'user' ? 'user' : 'bot'}`}>
                                     {msg.role === 'user' ? '🧑‍💻' : '🤖'}
                                 </div>
-                                <div className="bubble">{msg.content}</div>
+                                <div className="bubble">
+                                    {msg.content}
+                                </div>
                             </div>
                         ))}
-
-                        {/* LLM 模式下，Debug 面板顯示在對話視窗最下方，當次回答後 */}
-                        {chatHistory.length > 0 && renderDebugPanel()}
 
                         {loading && (
                             <div className="message-row bot">
                                 <div className="avatar bot">🤖</div>
-                                <div className="bubble"><span className="loading-dots">分析中</span></div>
+                                <div className="bubble">
+                                    <span className="loading-dots">分析中</span>
+                                </div>
                             </div>
                         )}
                         <div ref={chatEndRef} />
                     </div>
 
+                    {/* 輸入區 */}
                     <div className="chat-input-area">
                         <textarea
                             className="chat-input"
                             placeholder="輸入問題..."
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
-                            onKeyPress={(e) => { if(e.key === 'Enter' && !e.shiftKey && !loading) { e.preventDefault(); handleQuery(); }}}
+                            onKeyPress={(e) => {
+                                if(e.key === 'Enter' && !e.shiftKey && !loading) {
+                                    e.preventDefault();
+                                    handleQuery();
+                                }
+                            }}
                             rows={1}
                         />
-                        <button className="send-btn" onClick={handleQuery} disabled={loading || !query.trim()}>➤</button>
+                        <button 
+                            className="send-btn" 
+                            onClick={handleQuery} 
+                            disabled={loading || !query.trim()}
+                        >
+                            ➤
+                        </button>
                     </div>
-                    {chatHistory.length > 0 && <div className="clear-chat" onClick={clearHistory}>🗑️ 清除對話紀錄</div>}
                     
+                    {chatHistory.length > 0 && (
+                        <div className="clear-chat" onClick={clearHistory}>
+                            🗑️ 清除對話紀錄
+                        </div>
+                    )}
+
+                    {/* 最新參考資料 */}
                     {lastReferences && lastReferences.length > 0 && (
                         <div className="search-results" style={{marginTop: 10, fontSize: '0.9rem'}}>
                             <details>
-                                <summary className="details-summary" style={{fontSize: '0.9rem'}}>📁 最新回答參考資料 ({lastReferences.length} 筆)</summary>
+                                <summary className="details-summary" style={{fontSize: '0.9rem'}}>
+                                    📁 最新回答參考資料 ({lastReferences.length} 筆)
+                                </summary>
                                 <div style={{maxHeight: '200px', overflowY: 'auto'}}>
                                     {lastReferences.map((item, idx) => (
                                         <div key={idx} className="result-item" style={{padding: '8px'}}>
-                                            <div className="result-item-header"><span>{item.player_name || item.player_id} {item.season}</span></div>
-                                            <div className="result-preview" style={{fontSize: '0.8rem'}}>{item.preview}</div>
+                                            <div className="result-item-header">
+                                                <span>
+                                                    {item.player_name || item.player_id || item.id}
+                                                    {item.season && ` (${item.season})`}
+                                                </span>
+                                            </div>
+                                            <div className="result-preview" style={{fontSize: '0.8rem'}}>
+                                                {item.preview || item.text_preview || ''}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -527,23 +589,21 @@
                                 <div className="status-dot green"></div>
                                 <span>DB: {status.database_size?.toLocaleString()}</span>
                             </div>
-                            
-                            {/* Debug 開關 */}
-                            <div 
-                                className={`status-item debug-toggle ${showDebug ? 'active' : ''}`} 
-                                onClick={() => setShowDebug(!showDebug)}
-                                title="顯示路由與原始數據"
-                            >
-                                🐞 Debug
-                            </div>
                         </div>
 
                         <div className="mode-selector">
-                            <button className={`mode-btn ${mode === 'rag' ? 'active' : ''}`} onClick={() => handleModeChange('rag')}>
+                            <button 
+                                className={`mode-btn ${mode === 'rag' ? 'active' : ''}`}
+                                onClick={() => handleModeChange('rag')}
+                            >
                                 <div className="title">🔍 純 RAG 模式</div>
                                 <div className="desc">精確數據查詢</div>
                             </button>
-                            <button className={`mode-btn ${mode === 'llm' ? 'active' : ''}`} onClick={() => handleModeChange('llm')} disabled={!status.ollama_available}>
+                            <button 
+                                className={`mode-btn ${mode === 'llm' ? 'active' : ''}`}
+                                onClick={() => handleModeChange('llm')}
+                                disabled={!status.ollama_available}
+                            >
                                 <div className="title">💬 AI 對話模式</div>
                                 <div className="desc">自然語言分析</div>
                             </button>
