@@ -376,11 +376,13 @@
                     // ⭐ Debug: 檢查返回的數據
                     console.log('API Response:', data);
                     console.log('Search Results:', data.search_results);
+                    console.log('Metrics:', data.metrics);
 
                     setDebugData({
                         routed: data.routed,
                         structured: data.structured,
-                        mode: data.mode
+                        mode: data.mode,
+                        metrics: data.metrics  // ⭐ 新增 metrics
                     });
 
                     if (mode === 'rag') {
@@ -408,14 +410,48 @@
 
             const renderDebugPanel = () => {
                 if (!showDebug || !debugData?.routed) return null;
+                const { routed, structured, mode, metrics } = debugData;
+                
                 return (
                     <div className="debug-panel">
-                        <h4>🔧 Debug Info</h4>
+                        <h4>🔧 Debug Info: Query Router</h4>
                         <div className="debug-grid">
-                            <div><span className="debug-label">Type:</span> {debugData.routed.query_type}</div>
-                            <div><span className="debug-label">Intent:</span> {debugData.routed.intent}</div>
-                            <div><span className="debug-label">Players:</span> {debugData.routed.players?.join(', ') || 'None'}</div>
+                            <div><span className="debug-label">Type:</span> {routed.query_type}</div>
+                            <div><span className="debug-label">Intent:</span> {routed.intent}</div>
+                            <div><span className="debug-label">Metric:</span> {routed.metric || 'N/A'}</div>
+                            <div><span className="debug-label">Season:</span> {routed.seasons?.join(', ') || 'N/A'}</div>
+                            <div><span className="debug-label">Players:</span> {routed.players?.join(', ') || 'None'}</div>
+                            <div><span className="debug-label">Mode:</span> {mode}</div>
                         </div>
+                        
+                        {metrics && (
+                            <div style={{marginTop: 15}}>
+                                <h4>📊 Retrieval Metrics</h4>
+                                <div className="debug-grid">
+                                    <div><span className="debug-label">Recall@{metrics.k}:</span> {(metrics['recall@k'] * 100).toFixed(1)}%</div>
+                                    <div><span className="debug-label">Precision@{metrics.k}:</span> {(metrics['precision@k'] * 100).toFixed(1)}%</div>
+                                    <div><span className="debug-label">MRR:</span> {metrics.mrr.toFixed(3)}</div>
+                                    <div><span className="debug-label">Relevant:</span> {metrics.relevant_count}/{metrics.total_retrieved}</div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {structured && (
+                            <div style={{marginTop: 15}}>
+                                <h4>📋 Structured Lookup</h4>
+                                <div className="debug-grid">
+                                    <div><span className="debug-label">Kind:</span> {structured.kind}</div>
+                                    <div><span className="debug-label">Results:</span> {structured.results?.length || 0} items</div>
+                                </div>
+                            </div>
+                        )}
+
+                        <details style={{marginTop: 15, border: 'none', background: 'transparent', padding: 0}}>
+                            <summary style={{color: '#63b3ed', cursor: 'pointer'}}>📄 View Full JSON</summary>
+                            <pre style={{marginTop: 10, background: '#1a202c', padding: 10, borderRadius: 4, overflow: 'auto', color: '#90cdf4'}}>
+                                {JSON.stringify(debugData, null, 2)}
+                            </pre>
+                        </details>
                     </div>
                 );
             };
