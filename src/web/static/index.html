@@ -1,671 +1,621 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-    <meta charset="UTF-8" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MLB Team Manager Assistant</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
     <style>
-        /* --- 基礎樣式 (紫色漸層主題) --- */
+        /* --- 基礎樣式 --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #333;
-            min-height: 100vh;
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            min-height: 100vh; 
+            padding: 20px; 
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { text-align: center; color: white; margin-bottom: 20px; }
+        .header h1 { font-size: 2.2rem; margin-bottom: 5px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+        .header .subtitle { font-size: 1rem; opacity: 0.9; }
+        .main-card { 
+            background: white; 
+            border-radius: 16px; 
+            padding: 25px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3); 
+            min-height: 80vh; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        
+        /* 模式切換按鈕 */
+        .mode-selector { display: flex; gap: 15px; margin-bottom: 20px; justify-content: center; }
+        .mode-btn { 
+            padding: 10px 20px; 
+            border: 2px solid #e0e0e0; 
+            border-radius: 12px; 
+            background: white; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            min-width: 150px; 
+            text-align: center; 
+        }
+        .mode-btn:hover { transform: translateY(-2px); }
+        .mode-btn.active { border-color: #667eea; background: #667eea; color: white; }
+        .mode-btn .title { font-weight: 600; font-size: 1rem; }
+        .mode-btn .desc { font-size: 0.8rem; opacity: 0.8; margin-top: 2px; }
+
+        /* 狀態列 */
+        .status-bar { 
+            background: #f8f9fa; 
+            padding: 8px 15px; 
+            border-radius: 8px; 
+            margin-bottom: 20px; 
+            display: flex; 
+            gap: 20px; 
+            font-size: 0.85rem; 
+            justify-content: flex-end; 
+        }
+        .status-item { display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .status-dot.green { background: #4caf50; }
+        .status-dot.red { background: #f44336; }
+
+        /* --- RAG 模式樣式 --- */
+        .rag-container .query-section { margin-bottom: 25px; }
+        .rag-container .query-input { 
+            width: 100%; 
+            padding: 15px; 
+            border: 2px solid #e0e0e0; 
+            border-radius: 12px; 
+            font-size: 1rem; 
+        }
+        .rag-container .query-btn { 
+            width: 100%; 
+            padding: 15px; 
+            margin-top: 15px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            border: none; 
+            border-radius: 12px; 
+            font-size: 1.1rem; 
+            cursor: pointer; 
+        }
+        .rag-container .query-btn:hover { opacity: 0.9; }
+        .rag-container .query-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .rag-container .answer-section { 
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); 
+            border-left: 4px solid #667eea; 
+            padding: 25px; 
+            border-radius: 12px; 
+            margin-top: 30px; 
+        }
+        .rag-container .answer-text { 
+            line-height: 1.8; 
+            color: #222; 
+            font-size: 1.05rem; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            border: 1px solid #e0e0e0; 
+            margin-top: 15px; 
+            white-space: pre-wrap;
+        }
+        
+        /* 檢索詳情 */
+        .search-results { margin-top: 20px; padding-top: 20px; border-top: 1px dashed #e0e0e0; }
+        .search-results h3 { font-size: 1.1rem; color: #666; margin-bottom: 10px; }
+        details { 
+            border: 1px solid #e0e0e0; 
+            border-radius: 8px; 
+            padding: 10px; 
+            background: #f8f9fa; 
+        }
+        .details-summary { cursor: pointer; font-weight: 600; color: #667eea; }
+        .result-item { 
+            background: white; 
+            border: 1px solid #e0e0e0; 
+            border-radius: 8px; 
+            padding: 12px; 
+            margin-top: 10px; 
+        }
+        .result-item-header { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 5px; 
+            font-weight: 600; 
+            font-size: 0.9rem; 
+        }
+        .result-preview { font-size: 0.9rem; color: #555; }
+        .score { background: #eee; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; }
+
+        /* --- LLM 聊天模式樣式 --- */
+        .chat-layout { display: flex; flex-direction: column; height: 100%; flex: 1; }
+        
+        .chat-window {
+            flex: 1;
+            background: #f4f6f9;
+            border-radius: 12px;
             padding: 20px;
-        }
-
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        /* --- Header --- */
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-        }
-        .header h1 {
-            font-size: 2.2rem;
-            margin-bottom: 8px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        .header .subtitle {
-            font-size: 1rem;
-            opacity: 0.9;
-            font-weight: 300;
-        }
-
-        /* --- Main Card --- */
-        .main-card {
-            background: white;
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-            min-height: 60vh;
+            overflow-y: auto;
+            max-height: 600px;
+            min-height: 400px;
+            border: 1px solid #e0e0e0;
+            margin-bottom: 20px;
             display: flex;
             flex-direction: column;
             gap: 20px;
         }
 
-        /* --- Mode Toggle --- */
-        .mode-toggle-row {
+        .message-row {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .mode-toggle {
-            display: inline-flex;
-            gap: 8px;
-            align-items: center;
-        }
-        .mode-pill {
-            font-size: 0.8rem;
-            padding: 6px 12px;
-            border-radius: 999px;
-            border: 1px solid transparent;
-            cursor: pointer;
-            background: #e2e8f0;
-            color: #475569;
-            transition: all 0.15s;
-        }
-        .mode-pill.active {
-            background: #4f46e5;
-            color: white;
-            border-color: #4338ca;
-            box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.5);
-        }
-        .mode-label {
-            font-size: 0.8rem;
-            color: #94a3b8;
+            align-items: flex-start;
+            max-width: 85%;
         }
 
-        /* --- Input Area --- */
-        .search-area {
-            position: relative;
-            margin-bottom: 20px;
+        .message-row.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
         }
-        .search-box {
-            width: 100%;
-            padding: 16px 20px;
-            padding-right: 180px;
-            font-size: 1.1rem;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            transition: all 0.3s;
-            outline: none;
-            background: #f8fafc;
+
+        .message-row.bot {
+            align-self: flex-start;
         }
-        .search-box:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-            background: white;
-        }
-        .search-btn-group {
-            position: absolute;
-            right: 8px;
-            top: 8px;
-            bottom: 8px;
-            display: flex;
-            gap: 6px;
-        }
-        .search-btn, .clear-btn {
-            border: none;
-            border-radius: 8px;
-            padding: 0 16px;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: transform 0.1s, background 0.2s, color 0.2s;
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-        .search-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .clear-btn {
-            background: #e2e8f0;
-            color: #475569;
-        }
-        .search-btn:active,
-        .clear-btn:active {
-            transform: scale(0.96);
-        }
-        .search-btn:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
-        /* --- Examples --- */
-        .examples {
+        .avatar.bot { background: white; margin-right: 12px; border: 2px solid #667eea; }
+        .avatar.user { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-left: 12px; color: white; }
+
+        .bubble {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 18px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            line-height: 1.6;
+            font-size: 1rem;
+            position: relative;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .message-row.bot .bubble {
+            border-top-left-radius: 4px;
+            background: white;
+            color: #333;
+        }
+
+        .message-row.user .bubble {
+            border-top-right-radius: 4px;
+            background: #667eea;
+            color: white;
+        }
+
+        .chat-input-area {
             display: flex;
             gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
-        }
-        .ex-pill {
-            font-size: 0.85rem;
-            padding: 6px 14px;
-            background: #f1f5f9;
-            color: #64748b;
-            border-radius: 999px;
-            cursor: pointer;
-            border: 1px solid transparent;
-            transition: all 0.2s;
-        }
-        .ex-pill:hover {
-            background: #e2e8f0;
-            color: #334155;
-            border-color: #cbd5e1;
-        }
-
-        /* --- Section Titles --- */
-        .section-label {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #94a3b8;
-            font-weight: 700;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .section-label::after {
-            content: "";
-            flex: 1;
-            height: 1px;
-            background: #e2e8f0;
-        }
-
-        /* --- Chat / Bubbles --- */
-        .chat-wrapper {
-            max-height: 360px;
-            overflow-y: auto;
-            padding-right: 4px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .chat-row {
-            display: flex;
-            margin-bottom: 2px;
-        }
-        .chat-bubble {
-            padding: 10px 14px;
-            border-radius: 16px;
-            max-width: 70%;
-            font-size: 0.95rem;
-            line-height: 1.5;
-        }
-        .chat-bubble.ai {
-            margin-right: auto;
-            background: #f1f5f9;
-            color: #0f172a;
-            border-bottom-left-radius: 4px;
-        }
-        .chat-bubble.user {
-            margin-left: auto;
-            background: #4f46e5;
-            color: white;
-            border-bottom-right-radius: 4px;
-        }
-        .chat-role {
-            font-size: 0.75rem;
-            opacity: 0.7;
-            margin-bottom: 4px;
-        }
-        .chat-bubble.ai .chat-role {
-            color: #64748b;
-        }
-        .chat-bubble.user .chat-role {
-            color: #e0e7ff;
-            text-align: right;
-        }
-
-        /* --- Result Cards (Structured) --- */
-        .result-card {
-            background: #fff;
-            border: 1px solid #e2e8f0;
+            background: white;
+            padding: 10px;
             border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e0e0e0;
         }
-        .metric-hero {
-            text-align: center;
-            padding: 20px 0;
-        }
-        .metric-value {
-            font-size: 3rem;
-            font-weight: 800;
-            color: #764ba2;
-            line-height: 1;
-        }
-        .metric-desc {
+
+        .chat-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 10px;
             font-size: 1rem;
-            color: #64748b;
-            margin-top: 8px;
+            resize: none;
+            max-height: 100px;
         }
 
-        /* --- Tables --- */
-        .styled-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.95rem;
-            margin-top: 10px;
-        }
-        .styled-table th {
-            text-align: left;
-            padding: 12px;
-            color: #64748b;
-            font-weight: 600;
-            border-bottom: 2px solid #f1f5f9;
-            font-size: 0.85rem;
-        }
-        .styled-table td {
-            padding: 12px;
-            border-bottom: 1px solid #f1f5f9;
-            color: #334155;
-        }
-        .styled-table tr:last-child td {
-            border-bottom: none;
-        }
-        .styled-table tr:hover td {
-            background: #f8fafc;
-        }
-
-        /* --- Hits (Search Results) --- */
-        .hit-card {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin-bottom: 10px;
-            transition: border-color 0.2s;
-        }
-        .hit-card:hover {
-            border-color: #cbd5e1;
-        }
-        .hit-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 6px;
-        }
-        .hit-title {
-            font-weight: 600;
-            color: #1e293b;
-            font-size: 1rem;
-        }
-        .hit-meta {
-            font-size: 0.8rem;
-            color: #64748b;
-        }
-        .hit-score {
-            font-size: 0.75rem;
-            background: #e2e8f0;
-            padding: 2px 6px;
-            border-radius: 4px;
-            color: #475569;
-            white-space: nowrap;
-        }
-        .hit-preview {
-            font-size: 0.9rem;
-            color: #475569;
-            line-height: 1.5;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        /* --- Badges --- */
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 4px 10px;
-            border-radius: 99px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        .badge-ranking { background: #dbeafe; color: #1e40af; }
-        .badge-comparison { background: #ccfbf1; color: #0f766e; }
-        .badge-factual { background: #ffedd5; color: #9a3412; }
-        .badge-semantic { background: #f3e8ff; color: #6b21a8; }
-
-        /* --- Debug/Router Info --- */
-        details.debug-info {
-            margin-top: 30px;
-            border-top: 1px dashed #e2e8f0;
-            padding-top: 10px;
-        }
-        details.debug-info summary {
-            font-size: 0.8rem;
-            color: #94a3b8;
+        .send-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
             cursor: pointer;
-            list-style: none;
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+            font-size: 1.2rem;
         }
-        details.debug-info summary:hover {
-            color: #64748b;
-            text-decoration: underline;
+        .send-btn:hover { transform: scale(1.1); }
+        .send-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        .loading-dots:after {
+            content: '.';
+            animation: dots 1.5s steps(5, end) infinite;
         }
-        pre.json-dump {
-            background: #1e293b;
-            color: #a5b4fc;
-            padding: 15px;
-            border-radius: 8px;
-            overflow-x: auto;
-            font-size: 0.8rem;
-            margin-top: 10px;
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80%, 100% { content: ''; }
         }
 
-        .loading-spinner {
-            text-align: center;
-            padding: 40px;
-            color: #667eea;
-            font-weight: 500;
+        .clear-chat { 
+            font-size: 0.8rem; 
+            color: #999; 
+            cursor: pointer; 
+            text-align: center; 
+            margin-top: 5px; 
         }
-        .error-msg {
-            background: #fee2e2;
-            color: #991b1b;
-            padding: 12px;
+        .clear-chat:hover { color: #f44336; }
+
+        /* 範例按鈕 */
+        .ex-btn {
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            padding: 8px 15px;
             border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
             font-size: 0.9rem;
-            margin-bottom: 20px;
+        }
+        .ex-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(4px); }
-            to { opacity: 1; transform: translateY(0); }
+        /* 空狀態 */
+        .empty-state {
+            text-align: center;
+            color: #888;
+            margin-top: 50px;
+        }
+        .empty-state h3 {
+            margin-bottom: 10px;
         }
     </style>
 </head>
-
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState } = React;
+        const { useState, useEffect, useRef } = React;
 
         function App() {
-            const [query, setQuery] = useState("");
-            const [mode, setMode] = useState("rag"); // 'rag' or 'llm'
+            const [mode, setMode] = useState('rag');
+            const [query, setQuery] = useState('');
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState(null);
+            
+            // RAG 模式狀態
+            const [result, setResult] = useState(null);
+            
+            // LLM 聊天模式狀態
+            const [chatHistory, setChatHistory] = useState([]);
+            const [lastReferences, setLastReferences] = useState(null);
+            const chatEndRef = useRef(null);
 
-            const [classification, setClassification] = useState(null);
-            const [searchResults, setSearchResults] = useState([]);
-            const [answer, setAnswer] = useState("");
-            const [chat, setChat] = useState([]); // [{role:'user'|'assistant', content:string}]
+            // 系統狀態
+            const [status, setStatus] = useState({
+                ollama_available: false,
+                ollama_model: null,
+                database_size: 0
+            });
 
-            async function handleSubmit(e) {
-                if (e && e.preventDefault) {
-                    e.preventDefault();
+            // 載入系統狀態
+            useEffect(() => {
+                fetch('/api/health')
+                    .then(r => r.json())
+                    .then(data => {
+                        setStatus({
+                            ollama_available: data.llm_available || false,
+                            ollama_model: data.llm_available ? data.llm_model : null,
+                            database_size: 3252
+                        });
+                    })
+                    .catch(err => console.error('載入狀態失敗:', err));
+            }, []);
+
+            // 自動滾動到聊天底部
+            useEffect(() => {
+                if (mode === 'llm' && chatEndRef.current) {
+                    chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
                 }
-                const q = query.trim();
-                if (!q) return;
+            }, [chatHistory, mode]);
+
+            // 處理查詢
+            const handleQuery = async () => {
+                if (!query.trim()) return;
 
                 setLoading(true);
                 setError(null);
 
                 try {
                     const payload = {
-                        query: q,
-                        mode: mode,    // 傳給後端：rag / llm
-                        history: chat, // 直接丟整個 chat 給後端當 context
+                        query: query.trim(),
+                        mode: mode,
+                        history: mode === 'llm' ? chatHistory : []
                     };
 
-                    const res = await fetch("/api/query", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(payload),
+                    const response = await fetch('/api/query', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
                     });
 
-                    const data = await res.json();
+                    const data = await response.json();
 
-                    if (data.error) {
-                        throw new Error(data.error);
+                    if (!response.ok || data.error) {
+                        throw new Error(data.error || '查詢失敗');
                     }
 
-                    setClassification(data.classification || null);
-                    setSearchResults(data.search_results || []);
-                    setAnswer(data.answer || "");
-
-                    if (mode === "llm") {
-                        const next = [...chat, { role: "user", content: q }];
-                        if (data.answer) {
-                            next.push({ role: "assistant", content: data.answer });
-                        }
-                        setChat(next);
-                        setQuery("");
+                    if (mode === 'rag') {
+                        // RAG 模式：顯示結果
+                        setResult({
+                            answer: data.answer,
+                            search_results: data.search_results || data.hits || []
+                        });
                     } else {
-                        // RAG 模式：只顯示最新一輪回答在左邊
-                        setChat([]);
+                        // LLM 模式：加入對話歷史
+                        const newHistory = [
+                            ...chatHistory,
+                            { role: 'user', content: query.trim() },
+                            { role: 'assistant', content: data.answer }
+                        ];
+                        setChatHistory(newHistory);
+                        setLastReferences(data.search_results || data.hits || []);
+                        setQuery(''); // 清空輸入框
                     }
 
                 } catch (err) {
-                    setError(err.message || String(err));
+                    console.error('Query error:', err);
+                    setError(err.message || '發生錯誤，請稍後再試');
                 } finally {
                     setLoading(false);
                 }
-            }
+            };
 
-            function handleClear() {
-                setQuery("");
-                setAnswer("");
-                setSearchResults([]);
-                setClassification(null);
-                setChat([]);
+            // 切換模式
+            const handleModeChange = (newMode) => {
+                setMode(newMode);
+                setQuery('');
+                setResult(null);
                 setError(null);
-            }
+                // LLM 模式切換時不清除歷史記錄
+            };
 
-            function renderChat() {
-                // LLM 模式：顯示整個 chat history
-                if (mode === "llm") {
-                    return (
-                        <div className="chat-wrapper">
-                            {chat.length === 0 && !answer && (
-                                <div style={{fontSize:'0.85rem', color:'#94a3b8'}}>
-                                    LLM 對話模式：可以問「大谷 2023 投球」，再接著問「那 2024 呢？」。
-                                </div>
-                            )}
-                            {chat.map((m, idx) => (
-                                <div key={idx} className="chat-row">
-                                    <div className={"chat-bubble " + (m.role === "user" ? "user" : "ai")}>
-                                        <div className="chat-role">
-                                            {m.role === "user" ? "You" : "Assistant"}
-                                        </div>
-                                        <div>{m.content}</div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    );
+            // 清除對話記錄
+            const clearHistory = () => {
+                if (confirm('確定要清除所有對話記錄嗎？')) {
+                    setChatHistory([]);
+                    setLastReferences(null);
                 }
+            };
 
-                // RAG 模式：把 answer 當作單輪 AI 回答泡泡
-                if (answer) {
-                    return (
-                        <div className="chat-wrapper">
-                            <div className="chat-row">
-                                <div className="chat-bubble ai">
-                                    <div className="chat-role">Assistant</div>
-                                    <div>{answer}</div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                }
-
-                return (
-                    <div className="chat-wrapper">
-                        <div style={{fontSize:'0.85rem', color:'#94a3b8'}}>
-                            資料檢索模式：會回傳結構化數據與檢索來源，適合查排名 / 比較 / 具體指標。
-                        </div>
-                    </div>
-                );
-            }
-
-            return (
-                <div className="container">
-                    <div className="header">
-                        <h1>⚾ MLB Team Manager</h1>
-                        <div className="subtitle">Intelligent Statistics Retrieval & LLM Assistant</div>
+            // 渲染 RAG 介面
+            const renderRagInterface = () => (
+                <div className="rag-container">
+                    <div className="query-section">
+                        <input
+                            type="text"
+                            className="query-input"
+                            placeholder="輸入查詢，例如：大谷 2023 投球、2024 全壘打前 10 名"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            onKeyPress={(e) => {
+                                if (e.key === 'Enter' && !loading) {
+                                    handleQuery();
+                                }
+                            }}
+                        />
+                        <button 
+                            className="query-btn" 
+                            onClick={handleQuery}
+                            disabled={loading || !query.trim()}
+                        >
+                            {loading ? '查詢中...' : '🔍 查詢'}
+                        </button>
                     </div>
 
-                    <div className="main-card">
+                    {error && <div style={{color: 'red', marginTop: 20}}>❌ {error}</div>}
 
-                        {/* 模式切換 */}
-                        <div className="mode-toggle-row">
-                            <div className="mode-toggle">
-                                <span className="mode-label">模式：</span>
-                                <button
-                                    type="button"
-                                    className={"mode-pill " + (mode === "rag" ? "active" : "")}
-                                    onClick={() => { setMode("rag"); setChat([]); }}
-                                >
-                                    📊 資料檢索 (RAG)
-                                </button>
-                                <button
-                                    type="button"
-                                    className={"mode-pill " + (mode === "llm" ? "active" : "")}
-                                    onClick={() => { setMode("llm"); }}
-                                >
-                                    💬 LLM 對話
-                                </button>
-                            </div>
-                            <div className="mode-label">
-                                {mode === "rag" ? "重點在精準數據 & 排名" : "可多輪追問的球探對話"}
-                            </div>
-                        </div>
-
-                        {/* 搜尋區塊 */}
+                    {result && (
                         <div>
-                            <form className="search-area" onSubmit={handleSubmit}>
-                                <input
-                                    type="text"
-                                    className="search-box"
-                                    placeholder="輸入問題，例如：大谷 2023 投球 / 2024 全壘打前 10 名 / 誰 2023 AVG 比 Judge 高？"
-                                    value={query}
-                                    onChange={e => setQuery(e.target.value)}
-                                />
-                                <div className="search-btn-group">
-                                    <button
-                                        type="button"
-                                        className="clear-btn"
-                                        onClick={handleClear}
-                                        disabled={loading && !answer && searchResults.length === 0}
-                                    >
-                                        清除
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="search-btn"
-                                        disabled={loading}
-                                    >
-                                        {loading ? "分析中..." : "查詢"}
-                                    </button>
-                                </div>
-                            </form>
-
-                            {/* 快速範例 (僅設定輸入框，不直接送出) */}
-                            {!loading && !answer && searchResults.length === 0 && (
-                                <div className="examples">
-                                    <span className="ex-pill" onClick={() => setQuery("大谷 2023 投球")}>大谷 2023 投球</span>
-                                    <span className="ex-pill" onClick={() => setQuery("誰 2023 年全壘打比大谷高？")}>HR 比大谷高？</span>
-                                    <span className="ex-pill" onClick={() => setQuery("2024 全壘打前 10 名")}>2024 HR Top 10</span>
-                                    <span className="ex-pill" onClick={() => setQuery("誰 2023 AVG 比 Acuna 高？")}>AVG 比 Acuña 高？</span>
+                            <div className="answer-section">
+                                <h3>✅ 查詢結果</h3>
+                                <div className="answer-text">{result.answer}</div>
+                            </div>
+                            
+                            {result.search_results && result.search_results.length > 0 && (
+                                <div className="search-results">
+                                    <details>
+                                        <summary className="details-summary">
+                                            查看 {result.search_results.length} 筆原始數據來源
+                                        </summary>
+                                        <div>
+                                            {result.search_results.map((item, idx) => (
+                                                <div key={idx} className="result-item">
+                                                    <div className="result-item-header">
+                                                        <span>
+                                                            {item.player_name || item.player_id || item.id} 
+                                                            {item.season && ` (${item.season})`}
+                                                        </span>
+                                                        <span className="score">
+                                                            Score: {typeof item.score === 'number' ? item.score.toFixed(3) : 'N/A'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="result-preview">
+                                                        {item.preview || item.text_preview || item.embedding_text || ''}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </details>
                                 </div>
                             )}
                         </div>
+                    )}
+                </div>
+            );
 
-                        {error && <div className="error-msg">⚠️ {error}</div>}
-
-                        {loading && (
-                            <div className="loading-spinner">
-                                ⚾ 正在路由查詢與檢索 MLB 數據庫...
+            // 渲染 LLM 聊天介面
+            const renderLlmInterface = () => (
+                <div className="chat-layout">
+                    {/* 對話視窗 */}
+                    <div className="chat-window">
+                        {chatHistory.length === 0 && !loading && (
+                            <div className="empty-state">
+                                <h3>🤖 MLB 數據分析助手</h3>
+                                <p>我可以分析球員表現、比較數據，或是協助您查找特定紀錄。</p>
+                                <div style={{marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10}}>
+                                    <button className="ex-btn" onClick={() => setQuery("大谷 2023 投球表現如何？")}>
+                                        大谷 2023 投球表現如何？
+                                    </button>
+                                    <button className="ex-btn" onClick={() => setQuery("誰是 2024 全壘打王？")}>
+                                        誰是 2024 全壘打王？
+                                    </button>
+                                    <button className="ex-btn" onClick={() => setQuery("比較 Judge 和 Ohtani 的打擊數據")}>
+                                        比較 Judge 和 Ohtani 的打擊數據
+                                    </button>
+                                </div>
                             </div>
                         )}
 
-                        {/* 對話 / 回答區 */}
-                        <div>
-                            <div className="section-label">Conversation & Answer</div>
-                            {renderChat()}
-                        </div>
-
-                        {/* 檢索結果 / hits 區塊（保留在對話下方） */}
-                        {searchResults && searchResults.length > 0 && (
-                            <div style={{marginTop: 20, animation: 'fadeIn 0.4s'}}>
-                                <div className="section-label">
-                                    Retrieval Context ({searchResults.length})
-                                    <span className="badge badge-semantic" style={{marginLeft:'auto'}}>
-                                        Hybrid Search
-                                    </span>
+                        {chatHistory.map((msg, idx) => (
+                            <div key={idx} className={`message-row ${msg.role === 'user' ? 'user' : 'bot'}`}>
+                                <div className={`avatar ${msg.role === 'user' ? 'user' : 'bot'}`}>
+                                    {msg.role === 'user' ? '🧑‍💻' : '🤖'}
                                 </div>
-                                <div>
-                                    {searchResults.map((h, idx) => (
-                                        <div key={idx} className="hit-card">
-                                            <div className="hit-header">
-                                                <div>
-                                                    <div className="hit-title">
-                                                        {h.player || h.player_name || h.id || "Unknown Player"}
-                                                        {h.season ? ` · ${h.season}` : ""}
-                                                        {h.team ? ` · ${h.team}` : ""}
-                                                    </div>
-                                                    {h.type && (
-                                                        <div className="hit-meta">
-                                                            {h.type}
-                                                            {typeof h.score === "number" ? ` · score ${h.score.toFixed(3)}` : ""}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                {typeof h.score === "number" && (
-                                                    <span className="hit-score">score: {h.score.toFixed(3)}</span>
-                                                )}
-                                            </div>
-                                            <div className="hit-preview">
-           
+                                <div className="bubble">
+                                    {msg.content}
+                                </div>
+                            </div>
+                        ))}
 
-                                                {h.preview || h.embedding_text || h.raw_text || ""}
+                        {loading && (
+                            <div className="message-row bot">
+                                <div className="avatar bot">🤖</div>
+                                <div className="bubble">
+                                    <span className="loading-dots">分析中</span>
+                                </div>
+                            </div>
+                        )}
+                        <div ref={chatEndRef} />
+                    </div>
+
+                    {/* 輸入區 */}
+                    <div className="chat-input-area">
+                        <textarea
+                            className="chat-input"
+                            placeholder="輸入問題..."
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            onKeyPress={(e) => {
+                                if(e.key === 'Enter' && !e.shiftKey && !loading) {
+                                    e.preventDefault();
+                                    handleQuery();
+                                }
+                            }}
+                            rows={1}
+                        />
+                        <button 
+                            className="send-btn" 
+                            onClick={handleQuery} 
+                            disabled={loading || !query.trim()}
+                        >
+                            ➤
+                        </button>
+                    </div>
+                    
+                    {chatHistory.length > 0 && (
+                        <div className="clear-chat" onClick={clearHistory}>
+                            🗑️ 清除對話紀錄
+                        </div>
+                    )}
+
+                    {/* 最新參考資料 */}
+                    {lastReferences && lastReferences.length > 0 && (
+                        <div className="search-results" style={{marginTop: 10, fontSize: '0.9rem'}}>
+                            <details>
+                                <summary className="details-summary" style={{fontSize: '0.9rem'}}>
+                                    📁 最新回答參考資料 ({lastReferences.length} 筆)
+                                </summary>
+                                <div style={{maxHeight: '200px', overflowY: 'auto'}}>
+                                    {lastReferences.map((item, idx) => (
+                                        <div key={idx} className="result-item" style={{padding: '8px'}}>
+                                            <div className="result-item-header">
+                                                <span>
+                                                    {item.player_name || item.player_id || item.id}
+                                                    {item.season && ` (${item.season})`}
+                                                </span>
+                                            </div>
+                                            <div className="result-preview" style={{fontSize: '0.8rem'}}>
+                                                {item.preview || item.text_preview || ''}
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Debug / Routing Info（如果後端有丟 classification 可以看） */}
-                        {classification && (
-                            <details className="debug-info">
-                                <summary>查看 Query Classification / Debug</summary>
-                                <pre className="json-dump">
-                                    {JSON.stringify(classification, null, 2)}
-                                </pre>
                             </details>
-                        )}
+                        </div>
+                    )}
+                </div>
+            );
+
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>⚾ MLB Team Manager Assistant</h1>
+                        <div className="subtitle">棒球數據檢索與分析系統</div>
                     </div>
 
-                    <div style={{textAlign:'center', marginTop: 20, color: 'white', opacity: 0.6, fontSize: '0.8rem'}}>
-                        Powered by Hybrid Search, Query Router & LLM
+                    <div className="main-card">
+                        <div className="status-bar">
+                            <div className="status-item">
+                                <div className={`status-dot ${status.ollama_available ? 'green' : 'red'}`}></div>
+                                <span>LLM: {status.ollama_available ? (status.ollama_model || 'Available') : '不可用'}</span>
+                            </div>
+                            <div className="status-item">
+                                <div className="status-dot green"></div>
+                                <span>DB: {status.database_size?.toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        <div className="mode-selector">
+                            <button 
+                                className={`mode-btn ${mode === 'rag' ? 'active' : ''}`}
+                                onClick={() => handleModeChange('rag')}
+                            >
+                                <div className="title">🔍 純 RAG 模式</div>
+                                <div className="desc">精確數據查詢</div>
+                            </button>
+                            <button 
+                                className={`mode-btn ${mode === 'llm' ? 'active' : ''}`}
+                                onClick={() => handleModeChange('llm')}
+                                disabled={!status.ollama_available}
+                            >
+                                <div className="title">💬 AI 對話模式</div>
+                                <div className="desc">自然語言分析</div>
+                            </button>
+                        </div>
+
+                        {mode === 'rag' ? renderRagInterface() : renderLlmInterface()}
                     </div>
                 </div>
             );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById("root"));
-        root.render(<App />);
+        ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
 </html>
