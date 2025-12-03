@@ -7,4 +7,5 @@ mlb_data_adv/
 mlb_datas/
 mlb_lancedb/
 
-metrics_log.jsonl
+results/metrics_log.jsonl
+# *.jsonl

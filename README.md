@@ -97,6 +97,8 @@ mlb-team-manager-assistant/
 │   │
 │   └── web/                                # 網頁應用
 │       ├── app.py                          # Flask 後端
+│       ├── answer_templates.py             # 回答模板系統
+│       ├── stat_selection_config.py        # 查詢匹配驅動       
 │       └── static/
 │           └── index.html                  # React 前端界面
 │
@@ -271,7 +273,7 @@ Who had the highest WAR in 2023?
 2022年打擊率前5名
 ```
 
-### Comparison 查詢（比較型）⭐ v5 改進
+### Comparison 查詢（比較型）
 
 ```
 Ohtani 跟 Judge 2023年的打擊數據比較
@@ -279,7 +281,7 @@ Compare Yamamoto and Darvish pitching stats
 大谷 vs 山本 2024
 ```
 
-**RAG 回答範例**（v5 改進）：
+**RAG 回答範例**：
 ```
 2023 年數據比較：
 
@@ -345,7 +347,7 @@ final_score = α * vector_score + (1 - α) * bm25_score
 - Comparison: 0.4
 - Analysis: 0.6 (偏向語意理解)
 
-### 評估指標系統（v5 新增）⭐
+### 評估指標系統（v5 新增）
 
 **即時計算**：
 ```python
@@ -522,32 +524,20 @@ http://localhost:8000/api/metrics
 - A/B 測試比較
 - 系統優化分析
 
-### 2. RAG 回答格式改進
+## 📦 v6 新功能
 
-**改進前（v4）**：
-```
-找到 2 筆相關數據：
-1. Shohei Ohtani (2023 LAA) - batter
-   AVG: 0.304 | HR: 44 | OPS: 1.066
-2. Aaron Judge (2023 NYY) - batter
-   AVG: 0.267 | HR: 37 | OPS: 1.019
-```
+### 1. 回答模板系統
+- **Factual Query**：先回答主要指標，再補充相關數據
+- **Ranking Query**：結構化排名列表
+- **Comparison Query**：區分多球員/多賽季比較
 
-**改進後（v5）**：
-```
-2023 年數據比較：
+### 2. 改進的 Query Router
+- 支援**單球員多賽季比較**（如：「Ohtani 2022 2023 全壘打」）
+- 支援**多球員比較**（不要求明確 metric）
 
-AVG：Shohei Ohtani 0.304 > Aaron Judge 0.267（Ohtani 較佳）
-HR：Shohei Ohtani 44 > Aaron Judge 37（Ohtani 較佳）
-OPS：Shohei Ohtani 1.066 > Aaron Judge 1.019（Ohtani 較佳）
-
-詳細數據可以參考下方「原始數據來源」。
-```
-
-**優勢**：
-- 更直觀的比較方式
-- 清楚標註「較佳」球員
-- 引導用戶查看詳細來源
+### 3. Debug 面板優化
+- 加入 **Top N** 顯示（Ranking 查詢時）
+- 移除重複的 **Execution Mode**
 
 ---
 
@@ -638,8 +628,14 @@ cat results/metrics_log.jsonl
 
 ## 📝 版本歷史
 
-**當前版本**: v5.0.1  
-**最後更新**: 2024-12-02
+**當前版本**: v6.0.1  
+**最後更新**: 2024-12-03
+
+**v6.0**
+- 回答模板系統更新
+- Query Router 增強（中英文球員識別）
+- Comparison 查詢增強（多球員,多年份比較）
+- Debug 面板優化
 
 **v5.0**
 - 新增完整評估指標系統
@@ -648,7 +644,6 @@ cat results/metrics_log.jsonl
 - 自動指標記錄
 
 **v4.0**
-- 查詢路由增強（中英文球員識別）
 - LLM Prompt 人性化
 - 前端 Debug 面板
 
