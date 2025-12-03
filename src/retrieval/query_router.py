@@ -52,6 +52,7 @@ METRIC_MAP = {
     # 進階打擊指標
     "woba": "wOBA",
     "wrc+": "wRC+",
+    "純粹長打率": "ISO",
     "iso": "ISO",
     "babip": "BABIP",
     
@@ -59,7 +60,7 @@ METRIC_MAP = {
     "出棒速度": "Exit_Velocity",
     "擊球仰角": "Launch_Angle",
     "barrel%": "Barrel%",
-    "硬擊球率": "HardHit%",
+    "強擊球率": "HardHit%",
     
     # ============================================================
     # 投手核心指標（最常查詢）
@@ -90,7 +91,6 @@ METRIC_MAP = {
     
     # 被打結果
     "被全壘打": "Home_Runs_Allowed",  # 投手專屬
-    "被安打": "H",                    # 投手被安打
     
     # 通用指標
     "war": "WAR",

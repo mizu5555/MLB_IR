@@ -414,7 +414,8 @@
                     setDebugData({
                         routed: data.routed,
                         structured: data.structured,
-                        mode: data.mode
+                        mode: data.mode,
+                        eval_metrics: data.eval_metrics
                     });
 
                     if (mode === 'rag') {
@@ -462,14 +463,14 @@
                 setQuery(exampleQuery);
             };
 
-            // 渲染 Debug 面板
             const renderDebugPanel = () => {
                 if (!showDebug || !debugData || !debugData.routed) return null;
-                const { routed, structured, mode } = debugData;
+                const { routed, structured, mode, eval_metrics } = debugData;
                 
                 return (
                     <div className="debug-panel">
                         <h4>🔧 Debug Info: Query Router</h4>
+
                         <div className="debug-grid">
                             <div><span className="debug-label">Query Type:</span> {routed.query_type}</div>
                             <div><span className="debug-label">Intent:</span> {routed.intent}</div>
@@ -478,13 +479,24 @@
                             <div><span className="debug-label">Target Players:</span> {routed.players?.join(', ') || 'None'}</div>
                             <div><span className="debug-label">Execution Mode:</span> {mode}</div>
                         </div>
-                        
+
                         {structured && (
                             <div style={{marginTop: 15}}>
-                                <h4>📊 Debug Info: Structured Lookup</h4>
+                                <h4> 📋 Debug Info: Structured Lookup</h4>
                                 <div className="debug-grid">
                                     <div><span className="debug-label">Kind:</span> {structured.kind}</div>
                                     <div><span className="debug-label">Results:</span> {structured.results?.length || 0} items</div>
+                                </div>
+                            </div>
+                        )}
+
+                        {eval_metrics && (
+                            <div style={{marginTop: 15}}>
+                                <h4>📊 Evaluate Metrics</h4>
+                                <div className="debug-grid">
+                                    <div><span className="debug-label">Recall@5:</span> {(eval_metrics.recall_at_5 * 100).toFixed(1)}%</div>
+                                    <div><span className="debug-label">Precision@5:</span> {(eval_metrics.precision_at_5 * 100).toFixed(1)}%</div>
+                                    <div><span className="debug-label">MRR:</span> {eval_metrics.mrr.toFixed(4)}</div>
                                 </div>
                             </div>
                         )}
@@ -567,6 +579,20 @@
                                                     <div className="result-item-title">
                                                         {item.player_name || item.player_id || item.id}
                                                         {item.season && ` (${item.season})`}
+
+                                                        {item.type && (
+                                                            <span style={{
+                                                                marginLeft: "6px",
+                                                                fontSize: "0.82rem",
+                                                                color: item.type === "pitcher" ? "#1e88e5" : "#e53935",
+                                                                background: "#f0f0f0",
+                                                                padding: "2px 6px",
+                                                                borderRadius: "4px",
+                                                            }}>
+                                                                {item.type.toUpperCase()}
+                                                            </span>
+                                                        )}
+
                                                         {item.team && ` - ${item.team}`}
                                                     </div>
                                                     <div className="score">

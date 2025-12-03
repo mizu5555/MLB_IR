@@ -65,8 +65,8 @@
 | **Precision@5** | 66.7% | 前5個結果中相關文檔比例 |
 | **MRR** | 1.000 | 第一個相關結果在第1位 |
 | **Query Classification Accuracy** | 100% | 查詢分類準確率 |
-| **Fact Consistency Score** | 98.5% | 事實一致性評分 |
-| **Zero Hallucination Rate** | 0% | 無數值幻覺 |
+| **Fact Consistency Score** | N/A | 事實一致性評分 |
+| **Zero Hallucination Rate** | N/A | 無數值幻覺 |
 | **Avg Response Time** | 0.23s | 平均響應時間 |
 | **Database Size** | 3252 | 球員記錄數量 |
 | **Seasons Covered** | 2022-2024 | 涵蓋賽季 |
@@ -121,9 +121,11 @@ mlb-team-manager-assistant/
 │       └── bm25_ids.pkl                    # BM25 IDs
 │
 ├── test/                                   # 測試
-│   ├── report/                             # 測試報告
+│   ├── reports/                             # 測試報告
 │   ├── test_system.py                      # 系統測試
-│   └── evaluate.py                         # 評估腳本
+│   ├── evaluate.py                         # 評估腳本
+│   ├── view_metrics.py                     # 檢視指標腳本(需運行)
+│   └── check_database.py                   # 資料庫檢查
 │
 ├── result/ 
 │   └── metrics_log.jsonl                   # 評估指標記錄
@@ -256,48 +258,44 @@ What was Aaron Judge's OPS in 2024?
 **RAG 回答範例**：
 ```
 找到 Shohei Ohtani 在 2023 年的數據（LAA）。
-
 投球表現：
 - ERA: 3.14
 - WHIP: 1.06
 - K%: 31.5
 - FIP: 4.00
-
 詳細數據可以參考下方「原始數據來源」。
 ```
 
 ### Ranking 查詢（排名型）
 
 ```
-2024 全壘打前 10 名
+2024 全壘打前 5 名
 Who had the highest WAR in 2023?
-2022年打擊率前5名
+2022年打擊率前 10 名
+```
+**RAG 回答範例**：
+```
+**2024 年 全壘打 (HR) 排名前 5 名**
+Aaron Judge (NYY) - 58
+Shohei Ohtani (LAD) - 54
+Anthony Santander (BAL) - 44
+Juan Soto (NYY) - 41
+Marcell Ozuna (ATL) - 39
 ```
 
 ### Comparison 查詢（比較型）
 
 ```
-Ohtani 跟 Judge 2023年的打擊數據比較
-Compare Yamamoto and Darvish pitching stats
-大谷 vs 山本 2024
+比較Judge跟Ohtani2022年的全壘打數
 ```
 
 **RAG 回答範例**：
 ```
-2023 年數據比較：
-
-AVG：Shohei Ohtani 0.304 > Aaron Judge 0.267（Ohtani 較佳）
-HR：Shohei Ohtani 44 > Aaron Judge 37（Ohtani 較佳）
-OPS：Shohei Ohtani 1.066 > Aaron Judge 1.019（Ohtani 較佳）
+**2022 年 全壘打 (HR) 比較**
+Shohei Ohtani (LAA): 34
+Aaron Judge (NYY): 62
 
 詳細數據可以參考下方「原始數據來源」。
-```
-
-### Analysis 查詢（分析型）
-
-```
-分析 Ohtani 2023 為什麼這麼強
-Why is Yamamoto's rookie season impressive?
 ```
 
 ---
@@ -306,7 +304,7 @@ Why is Yamamoto's rookie season impressive?
 
 ### Query Router（v4 增強）
 
-**球員識別**（支援 25+ 內建球員）：
+**球員識別**：
 - 中文別名：「大谷」→ Shohei Ohtani
 - 英文姓氏：「Ohtani」→ Shohei Ohtani
 - 完整英文名：「Aaron Judge」
@@ -316,7 +314,6 @@ Why is Yamamoto's rookie season impressive?
 - Factual（事實型）
 - Ranking（排名型）
 - Comparison（比較型）
-- Analysis（分析型）
 
 **Metric 識別**：
 - 中文：「全壘打」→ HR
@@ -354,9 +351,8 @@ final_score = α * vector_score + (1 - α) * bm25_score
 ```python
 def calculate_metrics(results, routed, k=5):
     # 相關性判斷：
-    # - 匹配 filter_players
-    # - 匹配 filter_seasons
-    
+     - 匹配 filter_players
+     - 匹配 filter_seasons
     # 計算指標：
     - Recall@k: 找到相關文檔的比例
     - Precision@k: 前k個中相關的比例
@@ -376,61 +372,65 @@ def calculate_metrics(results, routed, k=5):
 ---
 
 ## 📈 支援的統計類型
+這裡只列出幾項常用的，詳細可以執行 `test\check_database.py` 查看。
 
 ### 打者統計（275+ 欄位）
 
-**基本打擊**：
-- AVG (打擊率)
-- HR (全壘打)
-- RBI (打點)
-- R (得分)
-- H (安打)
+**基本**：
 
-**進階統計**：
-- OPS (整體攻擊指數)
-- wOBA (加權上壘率)
-- wRC+ (加權得分創造指數，100 = 平均)
-- WAR (勝場貢獻值)
-- ISO (長打力)
+| 指標  | 英文欄位     | 說明         |
+| --- | -------- | ---------- |
+| 打擊率 | AVG      | 打者最基本的打擊能力 |
+| 安打  | Hits        | 全部安打數      |
+| 全壘打 | HR       | 長打能力代表     |
+| 打點  | RBI      | 攻擊貢獻       |
+| 得分  | Runs (R) | 跑回本壘得分     |
+
+**進階**：
+| 指標   | 英文欄位 | 說明                 |
+| ---- | ---- | ------------------ |
+| 上壘率  | OBP  | 上壘能力               |
+| 長打率  | SLG  | 長打火力               |
+| OPS  | OPS  | 上壘＋長打              |
+| wOBA | wOBA | 綜合攻擊評估             |
+| wRC+ | wRC+ | 數據調整後的攻擊表現（100 平均） |
 
 **Statcast 數據**：
-- Exit Velocity (出棒初速)
-- Launch Angle (擊球仰角)
-- Barrel% (強勁擊球率)
-- HardHit% (強擊球率)
+| 指標            | 英文欄位          | 說明       |
+| ------------- | ------------- | -------- |
+| Barrel%       | Barrel%       | 高質量擊球比例   |
+| 強擊球率       | HardHit%      | 擊出球的初速超過特定標準(\(95\) 英里)的比例 |
+| 純長打率       | ISO           | 單次擊球最高初速 |
 
-**進階指標**：
-- BB% (保送率)
-- K% (三振率)
-- BABIP (場內打擊率)
-- Spd (速度分數)
 
 ### 投手統計（298+ 欄位）
 
-**基本投球**：
-- ERA (防禦率)
-- W-L (勝敗)
-- IP (投球局數)
-- SO (三振)
-- BB (保送)
+**基本**：
+| 指標    | 英文欄位 | 說明        |
+| ----- | ---- | --------- |
+| 防禦率   | ERA  | 最重要投手統計   |
+| 三振率    | K%   | 奪三振能力     |
+| 勝場    | Wins  |  勝場    |
+| 敗場    | Losses   | 敗場      |
+| 救援成功    | Saves   | 救援成功      |
 
-**進階統計**：
-- WHIP (每局被上壘率)
-- FIP (投手獨立防禦率)
-- xFIP (預期 FIP)
-- SIERA (技能互動 ERA)
-- K/9 (每九局三振)
+
+**進階**：
+| 指標    | 英文欄位  | 說明       |
+| ----- | ----- | -------- |
+| WHIP  | WHIP  | 每局被上壘率   |
+| FIP   | FIP   | 投手純技術表現  |
+| xFIP  | xFIP  | 預期 FIP   |
+| SIERA | SIERA | 技能互動 ERA |
+
 
 **Statcast 數據**：
-- EV Against (被打出球初速)
-- Barrel% Against (被強擊率)
-- HardHit% Against (被強打率)
+| 指標                       | 英文欄位          | 說明                          |
+| ------------------------ | ------------- | --------------------------- |
+| 被全壘打                     | Home_Runs_Allowed     | 被全壘打次數                      |
+| K/9   | K/9   | 每 9 局三振  |
+| bb/9   | K/9   | 每 9 局保送數  |
 
-**進階指標**：
-- K% (三振率)
-- BB% (保送率)
-- GB% (滾地球率)
-- CSW% (好球揮空率)
 
 ---
 
@@ -463,7 +463,7 @@ def calculate_metrics(results, routed, k=5):
 點擊右上角「🐞 Debug」後顯示：
 ```
 🔧 Debug Info: Query Router
-Type: factual
+Query Type Type: factual
 Intent: null
 Metric: N/A
 Season: 2023
@@ -538,14 +538,12 @@ http://localhost:8000/api/metrics
 
 ### 3. Debug 面板優化
 - 加入 **Top N** 顯示（Ranking 查詢時）
-- 移除重複的 **Execution Mode**
 
 ### 4. 加入範例查詢
 - 新增Factual/Ranking/Comparsion範例問題按鈕
 
 ### 5. 改善Ranking機制
-- Ranking不使用hybrid_search做查詢排名
-- 直接從lookup_engine中根據對應Metric排序
+- Ranking不使用hybrid_search做查詢排名，直接從lookup_engine中根據對應Metric排序
 
 ---
 
@@ -562,8 +560,6 @@ python test/evaluate.py
 ```
 
 ### 查看評估指標
-
-#### 檢查記錄檔案
 
 ```bash
 # Windows
@@ -583,7 +579,7 @@ cat results/metrics_log.jsonl
 **Precision@k**:
 - 定義：前 k 個結果中相關文檔的比例
 - 計算：(前k個中相關的數量) / k
-- 範例：前5個結果中有2個相關 → Precision@5 = 40%
+- 範例：前5個結果中有4個相關 → Precision@5 = 80%
 
 **MRR (Mean Reciprocal Rank)**:
 - 定義：第一個相關結果的排名倒數
@@ -591,7 +587,6 @@ cat results/metrics_log.jsonl
 - 範例：
   - 第1名是相關結果 → MRR = 1.000
   - 第2名是相關結果 → MRR = 0.500
-  - 第3名是相關結果 → MRR = 0.333
 
 ---
 
@@ -606,13 +601,13 @@ cat results/metrics_log.jsonl
 - [x] 前端 Debug 面板
 - [x] 獨立評估 API
 - [x] 自動指標記錄（metrics_log.jsonl）
-- [x] RAG 回答格式改進（比較式）
+- [x] RAG 回答格式改進
 - [x] 事實一致性驗證
 - [x] 網頁界面（純 RAG + LLM 對話模式）
 - [x] 雙語支援（中英文）
 
 ### 計劃中
-
+- [ ] LLM 加入分析型回答
 - [ ] LLM 對話式回答優化
 - [ ] 加入人工標記評分
 - [ ] 更多賽季數據
@@ -645,6 +640,7 @@ cat results/metrics_log.jsonl
 - Comparison 查詢增強（多球員,多年份比較）
 - Debug 面板優化
 - 修正Ranking抓不到stats問題
+- 改善Comparison二刀流選手會回答兩筆數據的問題
 
 **v5.0**
 - 新增完整評估指標系統

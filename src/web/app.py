@@ -195,6 +195,61 @@ def serialize_hit(rec: dict, idx: int) -> dict:
     
     return result
 
+def choose_role_for_metric(metric, intent, hits):
+    """根據 metric 和 intent 選擇二刀流角色"""
+    metric = metric.upper()
+
+    pitcher_only = {"ERA", "WHIP", "FIP", "XFIP", "SIERA", "K/9", "BB/9", "H/9", "HR/9", "IP", "TBF"}
+    batter_only = {"AVG", "OBP", "SLG", "OPS", "OPS+", "ISO", "BABIP", "WOBA", "WRC", "WRC+"}
+    overlap = {"SO", "K", "K%", "BB", "BB%", "CS", "SB", "HARDHIT%", "BARREL%"}
+
+    # 1. Only-pitcher metrics
+    if metric in pitcher_only:
+        return [h for h in hits if h["type"] == "pitcher"]
+
+    # 2. Only-batter metrics
+    if metric in batter_only:
+        return [h for h in hits if h["type"] == "batter"]
+
+    # 3. Overlap metrics → intent first
+    if metric in overlap and intent:
+        if intent == "pitching":
+            pit = [h for h in hits if h["type"] == "pitcher"]
+            if pit: return pit
+
+        if intent == "batting":
+            bat = [h for h in hits if h["type"] == "batter"]
+            if bat: return bat
+
+    bat_hits = [h for h in hits if h["type"] == "batter"]
+    pit_hits = [h for h in hits if h["type"] == "pitcher"]
+
+    # Case A：全部都是打者
+    if bat_hits and not pit_hits:
+        return bat_hits
+
+    # Case B：全部都是投手
+    if pit_hits and not bat_hits:
+        return pit_hits
+
+    # Case C：混合 → 語義偏好
+    batter_lean = {"BB%", "K%", "OBP", "SLG", "OPS", "ISO"}
+    pitcher_lean = {"SO", "K", "K%", "H/9", "HR/9"}
+
+    if metric in batter_lean and bat_hits:
+        return bat_hits
+
+    if metric in pitcher_lean and pit_hits:
+        return pit_hits
+
+    # Final fallback: batter > pitcher
+    if bat_hits:
+        return bat_hits
+    if pit_hits:
+        return pit_hits
+
+    return hits
+
 def generate_rag_answer(query, hits, routed):
     """
     根據 Query Type 生成結構化回答
@@ -268,10 +323,10 @@ def generate_rag_answer(query, hits, routed):
             return answer
     
     # ============================================================
-    # ⭐⭐⭐ 2. Ranking Query（排名查詢）- v6.0.4 修正 ⭐⭐⭐
+    # 2. Ranking Query（排名查詢
     # ============================================================
     elif qtype == "ranking":
-        # ⭐⭐⭐ 關鍵修正：直接用 lookup_engine.rank() ⭐⭐⭐
+        # 直接用 lookup_engine.rank() 
         # 不要依賴 hybrid_search 的結果
         if not metric:
             return "沒有指定排名指標。"
@@ -337,6 +392,7 @@ def generate_rag_answer(query, hits, routed):
         
         # 從 hits 中提取比較數據
         comparisons = []
+        hits = choose_role_for_metric(metric, routed.get("intent"), hits)
         for hit in hits:
             player_name = hit.get("player_name")
             hit_season = hit.get("season")
@@ -583,6 +639,11 @@ def api_query():
             "structured": None,
             "answer": answer,
             "metrics": metrics,
+            "eval_metrics": {
+                "recall_at_5": metrics["recall@k"],
+                "precision_at_5": metrics["precision@k"],
+                "mrr": metrics["mrr"]
+            }
         }
 
         print(f"\n✅ 返回 {len(hits)} 筆結果給前端")
@@ -628,7 +689,12 @@ def api_metrics():
             "avg_response_time": round(avg_response_time, 3)
         },
         "recent_queries": query_metrics[-10:],  # 最近 10 筆
-        "metrics_file": str(METRICS_FILE)
+        "metrics_file": str(METRICS_FILE),
+        "eval_metrics": {
+            "recall_at_5": None,
+            "precision_at_5": None,
+            "mrr": None
+        }
     })
 
 if __name__ == "__main__":
