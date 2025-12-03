@@ -187,17 +187,16 @@ def generate_rag_answer(query, hits, routed):
     """
     根據 Query Type 生成結構化回答
     
-    v6.0.2 修正：
-    1. Comparison 查詢時過濾 N/A 值（解決大谷多賽季崩潰）
-    2. 使用 answer_templates_v3 的 is_valid_value() 函數
-    3. 投手的 AVG 使用 get_metric_name() 轉換為 BAA
+    v6.0.4 修正：
+    1. Ranking 查詢直接用 lookup_engine.rank()，不依賴 hybrid_search
+    2. 保留其他查詢類型的邏輯
     """
     from answer_templates import (
         format_factual_answer,
         format_ranking_answer,
         format_comparison_answer,
-        is_valid_value,  # ⭐ v6.0.2: 新增
-        get_metric_name,  # ⭐ v6.0.2: 新增
+        is_valid_value,
+        get_metric_name,
     )
     
     qtype = routed.get("query_type", "factual")
@@ -221,6 +220,7 @@ def generate_rag_answer(query, hits, routed):
         player_type = hit.get("type")
         stats = hit.get("stats", {})
         
+        # 檢查 metric 是否存在
         if metric:
             value = stats.get(metric)
             
@@ -256,32 +256,46 @@ def generate_rag_answer(query, hits, routed):
             return answer
     
     # ============================================================
-    # 2. Ranking Query（排名查詢）
+    # ⭐⭐⭐ 2. Ranking Query（排名查詢）- v6.0.4 修正 ⭐⭐⭐
     # ============================================================
     elif qtype == "ranking":
-        if not hits or not metric:
-            return "沒有找到相關數據。"
+        # ⭐⭐⭐ 關鍵修正：直接用 lookup_engine.rank() ⭐⭐⭐
+        # 不要依賴 hybrid_search 的結果
+        
+        if not metric:
+            return "沒有指定排名指標。"
         
         season = seasons[0] if seasons else None
+        if not season:
+            return "沒有指定年份。"
         
-        # 從 hits 中提取排名數據
+        top_n = routed.get("top_n", 10)
+        
+        # 這個函數會返回「數據前 N」的球員，而不是「相似度前 N」
+        lookup = LookupEngine()
+        
+        # rank() 返回 [(record, value), ...]
+        ranking_results = lookup.rank(
+            season=season,
+            metric=metric,
+            top_n=top_n,
+            ptype=intent  # pitcher / batter
+        )
+        
+        if not ranking_results:
+            return f"沒有找到 {season} 年 {metric} 的數據。"
+        
+        # 轉換為 format_ranking_answer() 需要的格式
         rankings = []
-        for hit in hits:
-            player_name = hit.get("player_name")
-            team = hit.get("team")
-            player_type = hit.get("type")
-            stats = hit.get("stats", {})
-            value = stats.get(metric)
-            
-            if is_valid_value(value):
-                rankings.append({
-                    "player": player_name,
-                    "team": team,
-                    "value": value
-                })
+        for rec, val in ranking_results:
+            rankings.append({
+                "player": rec.get("player_name"),
+                "team": rec.get("team"),
+                "value": val
+            })
         
         # 使用 answer_templates 的 format_ranking_answer()
-        player_type = hits[0].get("type") if hits else None
+        player_type = ranking_results[0][0].get("type") if ranking_results else None
         return format_ranking_answer(
             season=season,
             metric=metric,
@@ -320,6 +334,7 @@ def generate_rag_answer(query, hits, routed):
             stats = hit.get("stats", {})
             value = stats.get(metric)
             
+            # 過濾 N/A 值
             if not is_valid_value(value):
                 continue
             

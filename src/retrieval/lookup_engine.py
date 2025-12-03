@@ -1,4 +1,10 @@
-# src/retrieval/lookup_engine.py
+# ============================================================
+# Lookup Engine v2 (v6.0.3 Bug Fix)
+# 修正：
+# 1. rank() 函數正確排序（Bug 1）
+# 2. 保留 v6.0.2 的所有功能
+# ============================================================
+
 import json
 from pathlib import Path
 
@@ -7,7 +13,7 @@ from pathlib import Path
 # -----------------------------------------------
 LOWER_IS_BETTER = {
     "ERA", "FIP", "xFIP", "SIERA", "ERA-", "FIP-", "xFIP-",
-    "WHIP", "BB/9", "HR/9",
+    "WHIP", "BB/9", "HR/9", "BB%",
 }
 
 # ------------------------------------------------
@@ -31,7 +37,7 @@ class LookupEngine:
         if self.data_path.exists():
             with open(self.data_path, "r", encoding="utf-8") as f:
                 self.data = json.load(f)
-            print(f"✅ LookupEngine Loaded {len(self.data)} records.")
+            print(f"[LookupEngine] Loaded {len(self.data)} records.")
         else:
             print(f"⚠️ Warning: Training data not found at {self.data_path}")
 
@@ -60,31 +66,71 @@ class LookupEngine:
         norm = self.normalize_metric(metric)
         return norm in LOWER_IS_BETTER
 
-    # Ranking
+    # ⭐⭐⭐ v6.0.3: 修正 Bug 1 - Ranking 正確排序 ⭐⭐⭐
+    def rank(self, season, metric, top_n=10, ptype=None):
+        """
+        Ranking 查詢
+        
+        v6.0.3 修正：
+        1. 確保排序邏輯正確（越高越好 vs 越低越好）
+        2. 過濾無效值（None, N/A）
+        3. 返回結果保持排序
+        """
+        metric = self.normalize_metric(metric)
+        if metric is None:
+            return []
+        
+        rows = []
+        
+        for rec in self.data:
+            # 篩選條件：季節、類型
+            if str(rec.get("season")) != str(season):
+                continue
+            if ptype and rec.get("type") != ptype:
+                continue
+            
+            # 取得 metric 值
+            val = self.lookup_value(rec, metric)
+            
+            # ⭐ 過濾無效值
+            if val is None or val == "N/A":
+                continue
+            
+            # 確保是數值
+            try:
+                val = float(val)
+            except (ValueError, TypeError):
+                continue
+            
+            rows.append((rec, val))
+        
+        # ⭐⭐⭐ 關鍵修正：正確排序 ⭐⭐⭐
+        if self.is_lower_better(metric):
+            # 越低越好（ERA, FIP, WHIP...）
+            rows.sort(key=lambda x: x[1])  # 升序
+        else:
+            # 越高越好（HR, AVG, OPS...）
+            rows.sort(key=lambda x: x[1], reverse=True)  # 降序
+        
+        # ⭐ 返回前 N 筆（保持排序）
+        return rows[:top_n]
+
+    # Ranking (從 routed_data 調用)
     def ranking(self, routed_data):
-        # 從 routed_data 提取參數
+        """
+        從 routed_data 提取參數並調用 rank()
+        """
         metric = routed_data.get("metric")
         season = routed_data.get("seasons", [2023])[0]
         top_n = routed_data.get("top_n", 10)
         
-        rows = []
-        for rec in self.data:
-            if str(rec.get("season")) != str(season): continue
-            
-            val = self.lookup_value(rec, metric)
-            if isinstance(val, (int, float)):
-                rows.append(rec) # 這裡改回傳 record 物件，方便前端顯示
-
-        # 排序
-        metric_name = self.normalize_metric(metric)
-        reverse = not self.is_lower_better(metric_name)
-        
-        rows.sort(key=lambda x: self.lookup_value(x, metric_name), reverse=reverse)
-        return rows[:top_n]
+        return self.rank(season=season, metric=metric, top_n=top_n)
 
     # Comparison
     def comparison(self, routed_data, records=None):
-        # 簡化版 comparison，找出符合條件的球員列表
+        """
+        簡化版 comparison，找出符合條件的球員列表
+        """
         metric = routed_data.get("metric")
         season = routed_data.get("seasons", [2023])[0]
         target_players = routed_data.get("players", [])
@@ -116,3 +162,27 @@ class LookupEngine:
             "season": record.get("season"),
             "team": record.get("team")
         }
+
+
+# ============================================================
+# CLI 測試
+# ============================================================
+if __name__ == "__main__":
+    print("=" * 60)
+    print("Lookup Engine v2 測試")
+    print("=" * 60)
+    
+    lookup = LookupEngine()
+    
+    # 測試 Bug 1: Ranking 排序
+    print("\n測試 1: 2024 全壘打前 10 名（應該從高到低）")
+    results = lookup.rank(season=2024, metric="HR", top_n=10)
+    for i, (rec, val) in enumerate(results, 1):
+        print(f"  {i}. {rec['player_name']} - {val}")
+    
+    print("\n測試 2: 2023 防禦率前 3 名（應該從低到高）")
+    results = lookup.rank(season=2023, metric="ERA", top_n=3)
+    for i, (rec, val) in enumerate(results, 1):
+        print(f"  {i}. {rec['player_name']} - {val}")
+    
+    print("\n✅ 測試完成")

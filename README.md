@@ -31,7 +31,7 @@
     ├── 球員識別（中英文支援）
     ├── 查詢類型分類（Factual/Ranking/Comparison/Analysis）
     ├── Metric 抽取（HR, ERA, OPS...）
-    └── 季節/球員過濾
+    └── 賽季/球員過濾
     ↓
 [混合檢索]
     ├── Vector Search (語意相似度)
@@ -42,7 +42,7 @@
 [動態權重融合]
     └── α * vector_score + (1-α) * bm25_score
     ↓
-[評估指標計算] ⭐ v5 新增
+[評估指標計算] 
     ├── Recall@k
     ├── Precision@k
     ├── MRR
@@ -57,7 +57,7 @@
 
 ---
 
-## 🚀 性能指標（v5 版本）
+## 🚀 性能指標
 
 | 指標 | 數值 | 說明 |
 |------|------|------|
@@ -108,24 +108,25 @@ mlb-team-manager-assistant/
 │   │   ├── statcast_pitchers_enhanced.csv
 │   │   └── statcast_enhanced.json
 │   │
-│   ├── mlb_data_adv/                       # 生成的索引文件
-│   │   ├── text_chunks.json                # 文本描述
-│   │   ├── parsed_records.json             # 解析後的記錄
-│   │   ├── training_data.json              # 訓練數據（含stats）
-│   │   ├── player_db.json                  # 球員資料庫
-│   │   ├── vector_index.faiss              # FAISS 向量索引
-│   │   ├── vector_embeddings.npy           # 向量嵌入
-│   │   ├── vector_ids.json                 # Vector IDs（索引對應）
-│   │   ├── bm25_index.pkl                  # BM25 索引
-│   │   ├── bm25_corpus.pkl                 # BM25 分詞語料
-│   │   └── bm25_ids.pkl                    # BM25 IDs
-│   │
-│   └── metrics_log.jsonl                   # 評估指標記錄
+│   └── mlb_data_adv/                       # 生成的索引文件
+│       ├── text_chunks.json                # 文本描述
+│       ├── parsed_records.json             # 解析後的記錄
+│       ├── training_data.json              # 訓練數據（含stats）
+│       ├── player_db.json                  # 球員資料庫
+│       ├── vector_index.faiss              # FAISS 向量索引
+│       ├── vector_embeddings.npy           # 向量嵌入
+│       ├── vector_ids.json                 # Vector IDs（索引對應）
+│       ├── bm25_index.pkl                  # BM25 索引
+│       ├── bm25_corpus.pkl                 # BM25 分詞語料
+│       └── bm25_ids.pkl                    # BM25 IDs
 │
 ├── test/                                   # 測試
 │   ├── report/                             # 測試報告
 │   ├── test_system.py                      # 系統測試
 │   └── evaluate.py                         # 評估腳本
+│
+├── result/ 
+│   └── metrics_log.jsonl                   # 評估指標記錄
 │
 ├── requirements.txt
 ├── .gitignore
@@ -539,6 +540,13 @@ http://localhost:8000/api/metrics
 - 加入 **Top N** 顯示（Ranking 查詢時）
 - 移除重複的 **Execution Mode**
 
+### 4. 加入範例查詢
+- 新增Factual/Ranking/Comparsion範例問題按鈕
+
+### 5. 改善Ranking機制
+- Ranking不使用hybrid_search做查詢排名
+- 直接從lookup_engine中根據對應Metric排序
+
 ---
 
 ## 🧪 測試與評估
@@ -628,7 +636,7 @@ cat results/metrics_log.jsonl
 
 ## 📝 版本歷史
 
-**當前版本**: v6.0.1  
+**當前版本**: v6.0.3
 **最後更新**: 2024-12-03
 
 **v6.0**
@@ -659,8 +667,3 @@ cat results/metrics_log.jsonl
 - 初始版本
 - 基礎檢索功能
 
----
-
-## 📄 授權
-
-本專案為課程作業，僅供學術用途。

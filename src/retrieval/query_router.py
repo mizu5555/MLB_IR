@@ -1,9 +1,9 @@
 # ============================================================
-# Query Router v4 (v6.0.2 Bug Fix)
+# Query Router v5 (v6.0.3 Bug Fix)
 # 修正：
-# 1. route() 調用 detect_intent() 時傳入 metric 參數（關鍵修正！）
-# 2. 擴充 PITCHING_KEYWORDS（加入「防禦率」）
-# 3. extract_metric() 按關鍵字長度排序（長的優先）
+# 1. extract_top_n() 識別「前 N 高/低/快」（Bug 2）
+# 2. extract_players() 支援中文綴詞（Bug 3）
+# 3. 保留 v4 的所有修正（Intent 識別、Metric 長度排序）
 # ============================================================
 
 import re
@@ -90,7 +90,7 @@ BATTING_KEYWORDS = [
 PITCHING_KEYWORDS = [
     "投球", "投手", "pitching", 
     "era", "whip", "fip",
-    "防禦率",
+    "防禦率",  # v6.0.2
     "投球局數", "被安打", "保送",
     "三振", "k/9", "k%",
 ]
@@ -164,15 +164,21 @@ class QueryRouter:
         return list(sorted(set(int(y) for y in years)))
 
     # ------------------------------------------------------------
-    # 找 top_n 查詢（例如：前 10 名 / top 5）
+    # 找 top_n 查詢（例如：前 10 名 / top 5 / 前 3 高/低）
+    # v6.0.3: 修正 Bug 2 - 識別「前 N 高/低/快」
     # ------------------------------------------------------------
     def extract_top_n(self, query: str):
-        # 中文
+        # 中文：前 N 名
         m = re.search(r"前\s*(\d+)\s*名", query)
         if m:
             return int(m.group(1))
 
-        # 英文
+        # ⭐ v6.0.3: 前 N 高/低/快/慢
+        m = re.search(r"前\s*(\d+)\s*(高|低|快|慢|多|少)", query)
+        if m:
+            return int(m.group(1))
+
+        # 英文：top N
         m = re.search(r"top\s*(\d+)", query, re.I)
         if m:
             return int(m.group(1))
@@ -197,25 +203,36 @@ class QueryRouter:
 
     # ------------------------------------------------------------
     # 抽取球員名稱（中文 → 英文，支援姓氏/全名）
-    # v6.0.2: 使用 player_index 查詢
+    # v6.0.3: 修正 Bug 3 - 支援中文綴詞（「Ohtani在2023的全壘打」）
     # ------------------------------------------------------------
     def extract_players(self, query: str):
         """
         從查詢中抽取球員名稱（支援中文、英文姓氏、英文全名）
         
+        v6.0.3 修正：
+        - 移除單詞邊界限制（\b 不支援中文）
+        - 改用子字串匹配 + 長度優先（避免誤匹配）
+        
         範例：
         - "大谷 2023" → ["Shohei Ohtani"]
         - "Ohtani 2023" → ["Shohei Ohtani"]
+        - "Ohtani在2023的全壘打" → ["Shohei Ohtani"] ⭐ v6.0.3 修正
         - "Judge 跟 Ohtani 比較" → ["Aaron Judge", "Shohei Ohtani"]
         """
         players = []
         q_lower = query.lower()
         
-        # 遍歷所有別名，檢查是否在查詢中
-        for alias, full_name in self.player_index.items():
-            # 使用單詞邊界匹配（避免部分匹配，例如 "judge" 不會匹配到 "judged"）
-            pattern = r'\b' + re.escape(alias) + r'\b'
-            if re.search(pattern, q_lower):
+        # ⭐ v6.0.3: 按別名長度排序（長的優先），避免誤匹配
+        # 例如：「judge」優先於「ju」
+        sorted_aliases = sorted(
+            self.player_index.items(), 
+            key=lambda x: len(x[0]), 
+            reverse=True
+        )
+        
+        for alias, full_name in sorted_aliases:
+            # ⭐ v6.0.3: 移除單詞邊界限制，改用簡單子字串匹配
+            if alias in q_lower:
                 if full_name not in players:
                     players.append(full_name)
         
@@ -257,12 +274,16 @@ class QueryRouter:
 
     # ------------------------------------------------------------
     # Query Type（factual / ranking / comparison / analysis）
+    # v6.0.3: 修正 Bug 2 - 識別「前 N 高/低」為 ranking
     # ------------------------------------------------------------
     def detect_query_type(self, query, players, metric, top_n):
         q = query.lower()
 
-        # Ranking
-        if top_n or ("前" in query and "名" in query):
+        # ⭐ v6.0.3: Ranking（前 N 名 / 前 N 高/低 / top N）
+        if top_n:
+            return "ranking"
+
+        if "前" in query and ("名" in query or "高" in query or "低" in query or "快" in query or "慢" in query):
             return "ranking"
 
         if "top" in q and re.search(r"top\s*\d+", q):
@@ -299,7 +320,7 @@ class QueryRouter:
         # 抽取 metric（HR、ERA、OPS...）
         metric = self.extract_metric(query)
 
-        # ⭐⭐⭐ 關鍵修正：傳入 metric 參數 ⭐⭐⭐
+        # ⭐⭐⭐ v6.0.2: 傳入 metric 參數 ⭐⭐⭐
         intent = self.detect_intent(query, metric)
 
         # top_n
@@ -355,13 +376,20 @@ class QueryRouter:
 # CLI 測試
 if __name__ == "__main__":
     qr = QueryRouter()
-    print(f"\n✅ Query Router v4 初始化完成，載入 {len(qr.player_index)} 個球員別名\n")
+    print(f"\n✅ Query Router v5 初始化完成，載入 {len(qr.player_index)} 個球員別名\n")
     
-    while True:
-        q = input("\n輸入查詢（或 Enter 離開）：")
-        if not q.strip():
-            break
-
+    # 測試 Bug 2 和 Bug 3
+    test_cases = [
+        "2023 防禦率前 3 低",
+        "2023 全壘打前 3 高",
+        "Ohtani 2023 全壘打",
+        "Ohtani在2023的全壘打",
+    ]
+    
+    for q in test_cases:
         routed = qr.route(q)
-        print("\n--- Routed Result ---")
-        print(json.dumps(routed, indent=2, ensure_ascii=False))
+        print(f"\n查詢: {q}")
+        print(f"  Query Type: {routed['query_type']}")
+        print(f"  Top N: {routed['top_n']}")
+        print(f"  Players: {routed['players']}")
+        print(f"  Metric: {routed['metric']}")
