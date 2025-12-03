@@ -4,9 +4,20 @@
 # 1. rank() 函數正確排序（Bug 1）
 # 2. 保留 v6.0.2 的所有功能
 # ============================================================
-
+import sys
+import os
 import json
 from pathlib import Path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.join(current_dir, '../..')
+sys.path.insert(0, project_root)
+
+# ------------------------------------------------
+# 中文 → 英文 metric 映射
+# ------------------------------------------------
+
+from src.retrieval.query_router import METRIC_MAP as METRIC_ALIAS
+#ETRIC_ALIAS = {"全壘打": "HR", "安打": "HITS", "得分": "R", "打點": "RBI", "盜壘": "SB","三振": "SO", "保送": "BB", "打擊率": "AVG", "上壘率": "OBP", "長打率": "SLG","OPS": "OPS", "ISO": "ISO", "BABIP": "BABIP", "WOBA": "wOBA", "WRC+": "wRC+","防禦率": "ERA", "ERA": "ERA", "FIP": "FIP", "WHIP": "WHIP","出棒速度": "ExitVelocity", "擊球仰角": "LaunchAngle"}
 
 # -----------------------------------------------
 # 自動判斷哪些指標越低越好
@@ -16,16 +27,6 @@ LOWER_IS_BETTER = {
     "WHIP", "BB/9", "HR/9", "BB%",
 }
 
-# ------------------------------------------------
-# 中文 → 英文 metric 映射
-# ------------------------------------------------
-METRIC_ALIAS = {
-    "全壘打": "HR", "安打": "HITS", "得分": "R", "打點": "RBI", "盜壘": "SB",
-    "三振": "SO", "保送": "BB", "打擊率": "AVG", "上壘率": "OBP", "長打率": "SLG",
-    "OPS": "OPS", "ISO": "ISO", "BABIP": "BABIP", "WOBA": "wOBA", "WRC+": "wRC+",
-    "防禦率": "ERA", "ERA": "ERA", "FIP": "FIP", "WHIP": "WHIP",
-    "出棒速度": "ExitVelocity", "擊球仰角": "LaunchAngle"
-}
 
 class LookupEngine:
     def __init__(self):
@@ -37,14 +38,17 @@ class LookupEngine:
         if self.data_path.exists():
             with open(self.data_path, "r", encoding="utf-8") as f:
                 self.data = json.load(f)
-            print(f"[LookupEngine] Loaded {len(self.data)} records.")
+            print(f"✅ LookupEngine Loaded {len(self.data)} records.")
         else:
             print(f"⚠️ Warning: Training data not found at {self.data_path}")
+
+        #print("Record keys:", list(self.data[0].keys()))
+        #print("Stats available:", "stats" in self.data[0])
+        #print("Stats keys:", list(self.data[0].get("stats", {}).keys()))
 
     def normalize_metric(self, metric: str):
         if not metric: return None
         metric = metric.strip()
-        # 英文轉大寫，中文保持原樣查表
         if metric.upper() in METRIC_ALIAS.values(): # 已經是英文縮寫
             return metric.upper()
         return METRIC_ALIAS.get(metric, metric) # 查表或回傳原值

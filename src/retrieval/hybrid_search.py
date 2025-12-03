@@ -19,7 +19,7 @@ class HybridSearch:
     """
 
     def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> None:
-        print("🔧 Initializing HybridSearch...")
+        print("🔁 Initializing HybridSearch...")
 
         # 1. 載入訓練資料
         training_path = DATA_DIR / "training_data.json"

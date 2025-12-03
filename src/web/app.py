@@ -28,7 +28,7 @@ try:
     )
     
     LLM_AVAILABLE = True
-    print("✅ 成功載入模組")
+
 except ImportError as e:
     print(f"⚠️ 模組載入失敗: {e}")
     LLM_AVAILABLE = False
@@ -44,11 +44,11 @@ try:
         format_factual_answer,
         format_ranking_answer,
         format_comparison_answer,
-        extract_comparison_data,
-        extract_ranking_data
+        #extract_comparison_data,
+        #extract_ranking_data
     )
     TEMPLATES_AVAILABLE = True
-    print("✅ 成功載入 answer_templates")
+
 except ImportError as e:
     print(f"⚠️ answer_templates 載入失敗: {e}")
     TEMPLATES_AVAILABLE = False
@@ -66,6 +66,18 @@ print("🔧 初始化檢索系統...")
 router = QueryRouter()
 searcher = HybridSearch()
 lookup = LookupEngine()
+
+"""print("🔄 Syncing stats from HybridSearch to LookupEngine...")
+hybrid_map = {rec["record_key"]: rec["stats"] for rec in searcher.records}
+
+cnt = 0
+for rec in lookup.data:
+    key = rec.get("record_key")
+    if key in hybrid_map:
+        rec["stats"] = hybrid_map[key]
+        cnt += 1
+print(f"✅ Stats Sync 完成，共更新 {cnt} 筆資料")"""
+
 print("✅ 檢索系統初始化完成")
 
 STATIC_DIR = os.path.join(current_dir, "static")
@@ -261,7 +273,6 @@ def generate_rag_answer(query, hits, routed):
     elif qtype == "ranking":
         # ⭐⭐⭐ 關鍵修正：直接用 lookup_engine.rank() ⭐⭐⭐
         # 不要依賴 hybrid_search 的結果
-        
         if not metric:
             return "沒有指定排名指標。"
         
@@ -281,7 +292,7 @@ def generate_rag_answer(query, hits, routed):
             top_n=top_n,
             ptype=intent  # pitcher / batter
         )
-        
+ 
         if not ranking_results:
             return f"沒有找到 {season} 年 {metric} 的數據。"
         
@@ -291,7 +302,7 @@ def generate_rag_answer(query, hits, routed):
             rankings.append({
                 "player": rec.get("player_name"),
                 "team": rec.get("team"),
-                "value": val
+                "value": val,
             })
         
         # 使用 answer_templates 的 format_ranking_answer()
@@ -300,7 +311,7 @@ def generate_rag_answer(query, hits, routed):
             season=season,
             metric=metric,
             rankings=rankings,
-            player_type=player_type
+            player_type=player_type,
         )
     
     # ============================================================
@@ -434,13 +445,85 @@ def api_query():
         routed = router.route(query)
         qtype = routed.get("query_type")
         metric = routed.get("metric")
+        seasons = routed.get("seasons", [])
         top_n = routed.get("top_n") or topk
 
         print(f"\n{'='*60}")
         print(f"📊 Query: {query}")
         print(f"   Type: {qtype}, Metric: {metric}, Mode: {mode}, TopK: {top_n}")
 
-        # 2) Hybrid Search
+
+        # ============================================================
+        # Ranking Query（stats 排名，不用 hybrid）
+        # ============================================================
+        if qtype == "ranking" and metric:
+            if not seasons:
+                return jsonify({"ok": False, "error": "需要指定年份"}), 400
+
+            season = seasons[0]
+            print(f"   🎯 Ranking Query → season={season}, metric={metric}")
+            ptype = routed.get("intent")
+
+            ranking_results = lookup.rank(
+                season=season,
+                metric=metric,
+                top_n=top_n,
+                ptype=routed.get("intent")   # pitcher/batter
+            )
+
+            hits = []
+            for rec, val in ranking_results:
+                hits.append({
+                    "record_key": rec.get("record_key"),
+                    "player_name": rec.get("player_name"),
+                    "season": rec.get("season"),
+                    "team": rec.get("team"),
+                    "type": rec.get("type"),
+                    "stats": rec.get("stats"),
+                    "score": float(val)  # ⭐ 用 stats 值，不是 hybrid score
+                })
+
+            print(f"✅ Ranking 成功: {len(hits)} 筆")
+
+            # 回答（仍可使用 RAG answer）
+            answer = generate_rag_answer(query, hits, routed)
+
+            elapsed_time = time.time() - start_time
+
+            # Ranking Query → 直接 return（不跑 Hybrid Search）
+            return jsonify({
+                "ok": True,
+                "query": query,
+                "routed": routed,
+                "mode": qtype,
+                "hits": hits,
+                "search_results": hits,
+                "structured": {
+                    "kind": "ranking",
+                    "metric": metric,
+                    "season": season,
+                    "results": [
+                        {
+                            "player": h["player_name"],
+                            "value": h["score"],
+                            "season": h["season"],
+                            "team": h["team"]
+                        }
+                        for h in hits
+                    ]
+                },
+                "answer": answer,
+                "metrics": {
+                    "ranking": True,
+                    "response_time": elapsed_time
+                }
+            })
+
+
+        # ============================================================
+        # Factual & Comparison → 執行 Hybrid Search 
+        # ============================================================
+
         normalized = routed.get("normalized_query") or query
         
         try:
@@ -482,48 +565,24 @@ def api_query():
         print(f"\n✅ 序列化完成: {len(hits)} 筆")
 
         # 5) 生成回答
-        answer = ""
-        structured = None
-        
         if mode == "llm" and OLLAMA_AVAILABLE:
             answer = generate_llm_response(query, routed, raw_hits, history)
         else:
-            # RAG 模式 - 使用改進的回答生成
             answer = generate_rag_answer(query, hits, routed)
 
         elapsed_time = time.time() - start_time
 
-        # 6) 記錄指標
-        query_log = {
-            "timestamp": datetime.now().isoformat(),
-            "query": query,
-            "mode": mode,
-            "query_type": qtype,
-            "metrics": metrics,
-            "response_time": elapsed_time,
-            "results_count": len(hits)
-        }
-        query_metrics.append(query_log)
-        
-        # 寫入檔案
-        try:
-            METRICS_FILE.parent.mkdir(parents=True, exist_ok=True)
-            with open(METRICS_FILE, "a", encoding="utf-8") as f:
-                f.write(json.dumps(query_log, ensure_ascii=False) + "\n")
-        except Exception as e:
-            print(f"⚠️ 寫入 metrics 檔案失敗: {e}")
-
+        # 6) 記錄指標 + 回傳
         response = {
             "ok": True,
             "query": query,
             "routed": routed,
-            "classification": routed,
             "mode": qtype,
             "search_results": hits,
             "hits": hits,
-            "structured": structured,
+            "structured": None,
             "answer": answer,
-            "metrics": metrics,  # ⭐ 回傳給前端
+            "metrics": metrics,
         }
 
         print(f"\n✅ 返回 {len(hits)} 筆結果給前端")
@@ -537,6 +596,8 @@ def api_query():
         print(f"❌ API 錯誤: {e}")
         print(traceback.format_exc())
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
 
 @app.route("/api/metrics", methods=["GET"])
 def api_metrics():

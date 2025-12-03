@@ -26,69 +26,92 @@ PLAYER_ALIAS = {
 }
 
 # ------------------------------------------------------------
-# Metric 映射（按長度排序，長的優先）
+# Metric 映射（Ranking + Comparison 使用）
 # ------------------------------------------------------------
 METRIC_MAP = {
-    # ⭐ 投手指標（優先級最高，完整匹配）
-    "防禦率": "ERA",
-    "投球局數": "IP",
-    "被安打": "H",
-    "被全壘打": "HR",
-    "保送": "BB",
-    "三振": "SO",
-    "自責分": "ER",
-    "勝場": "W",
-    "敗場": "L",
-    "救援成功": "SV",
+    # ============================================================
+    # 打者核心指標（最常查詢）
+    # ============================================================
     
-    # ⭐ 打者指標（優先級次之）
+    # 基礎打擊
+    "全壘打": "HR",
+    "安打": "Hits",            # 注意：是 Hits 不是 H
+    "打點": "RBI",
+    "得分": "Runs",            # 注意：是 Runs 不是 R
+    "盜壘": "SB",
+    "三振": "SO",              # 打者被三振
+    "保送": "BB",
+    
+    # 打擊率指標
     "打擊率": "AVG",
     "上壘率": "OBP",
     "長打率": "SLG",
-    "全壘打": "HR",
-    "安打": "H",
-    "得分": "R",
-    "打點": "RBI",
-    "盜壘": "SB",
-    "保送": "BB",
-    "三振": "SO",
-    
-    # 英文縮寫（最後匹配）
-    "era": "ERA",
-    "whip": "WHIP",
-    "fip": "FIP",
-    "xfip": "xFIP",
-    "siera": "SIERA",
-    "k/9": "K/9",
-    "bb/9": "BB/9",
-    "k/bb": "K/BB",
-    "ip": "IP",
-    "w": "W",
-    "l": "L",
-    "sv": "SV",
-    "hr": "HR",
-    "home runs": "HR",
+    "上壘加長打率": "OPS",
     "ops": "OPS",
-    "slugging": "SLG",
-    "obp": "OBP",
-    "avg": "AVG",
-    "rbi": "RBI",
-    "sb": "SB",
+    
+    # 進階打擊指標
     "woba": "wOBA",
     "wrc+": "wRC+",
     "iso": "ISO",
     "babip": "BABIP",
+    
+    # Statcast 指標
+    "出棒速度": "Exit_Velocity",
+    "擊球仰角": "Launch_Angle",
+    "barrel%": "Barrel%",
+    "硬擊球率": "HardHit%",
+    
+    # ============================================================
+    # 投手核心指標（最常查詢）
+    # ============================================================
+    
+    # 基礎投球
+    "防禦率": "ERA",
+    "era": "ERA",
+    "投球局數": "Innings_Pitched",
+    "三振數": "Strikeouts",     # 投手三振打者（注意：不是 SO）
+    "勝場": "Wins",
+    "敗場": "Losses",
+    "救援成功": "Saves",
+    
+    # 進階投球指標
+    "whip": "WHIP",
+    "fip": "FIP",
+    "xfip": "xFIP",
+    "siera": "SIERA",
+    
+    # 投球率指標
+    "三振率": "K%",             # K% 打者和投手都有
+    "k%": "K%",
+    "保送率": "BB%",            # BB% 打者和投手都有
+    "bb%": "BB%",
+    "k/9": "K/9",              # 每 9 局三振數（投手專屬）
+    "bb/9": "BB/9",            # 每 9 局保送數（投手專屬）
+    
+    # 被打結果
+    "被全壘打": "Home_Runs_Allowed",  # 投手專屬
+    "被安打": "H",                    # 投手被安打
+    
+    # 通用指標
+    "war": "WAR",
+    
+    # 英文別名（便於用戶直接輸入英文）
+    "home runs": "HR",
+    "strikeouts": "Strikeouts",  # 投手三振
+    "earned run average": "ERA",
+    "innings pitched": "Innings_Pitched",
+    "runs batted in": "RBI",
 }
 
-# 附加：判斷 batting / pitching 意圖
-BATTING_KEYWORDS = [
-    "打擊", "打者", "batting", "hitting", 
+# 附加：判斷 batter / pitcher 意圖
+batter_KEYWORDS = [
+    "打擊", "打者", "batter", "hitting", 
     "ops", "home runs", "slugging",
     "安打", "得分", "打點", "盜壘",
 ]
 
-PITCHING_KEYWORDS = [
-    "投球", "投手", "pitching", 
+pitcher_KEYWORDS = [
+    "投球", "投手", "pitcher", 
     "era", "whip", "fip",
     "防禦率",  # v6.0.2
     "投球局數", "被安打", "保送",
@@ -151,7 +174,7 @@ class QueryRouter:
             for zh, en in PLAYER_ALIAS.items():
                 self.player_index[zh.lower()] = en
             
-            print(f"✅ 球員索引建立完成：{len(self.player_index)} 個別名")
+            print(f"🏀 球員索引建立完成：{len(self.player_index)} 個別名")
             
         except Exception as e:
             print(f"⚠️ 載入 player_db.json 失敗: {e}")
@@ -192,13 +215,13 @@ class QueryRouter:
     def extract_metric(self, query: str):
         q = query.lower()
         
-        # ⭐ 修正：按關鍵字長度排序（長的優先）
+        # 修正：按關鍵字長度排序（長的優先）
         sorted_metrics = sorted(METRIC_MAP.items(), key=lambda x: len(x[0]), reverse=True)
         
         for kw, metric in sorted_metrics:
-            if kw in q:
+            if kw.lower() in q:
                 return metric
-        
+            
         return None
 
     # ------------------------------------------------------------
@@ -244,31 +267,32 @@ class QueryRouter:
     # ------------------------------------------------------------
     def detect_intent(self, query: str, metric: str = None):
         """
-        判斷查詢意圖：batting / pitching / None
+        判斷查詢意圖：batter / pitcher / None
         
         v6.0.2 修正：
-        1. 優先根據 metric 判斷（ERA → pitching，HR → batting）
-        2. 再根據關鍵字判斷（"投球" → pitching，"打擊" → batting）
+        1. 優先根據 metric 判斷（ERA → pitcher，HR → batter）
+        2. 再根據關鍵字判斷（"投球" → pitcher，"打擊" → batter）
         """
-        # ⭐ 1️⃣ 優先根據 metric 判斷
+        q = query.lower()
+        
+        # 1️⃣ 優先根據 metric 判斷
         if metric:
             # 投手指標
             if metric in ["ERA", "FIP", "xFIP", "SIERA", "WHIP", "K/9", "BB/9", "K/BB", "IP", "W", "L", "SV"]:
-                return "pitching"
+                return "pitcher"
             
             # 打者指標（但排除投手的 HR、BB、SO）
-            if metric in ["AVG", "OBP", "SLG", "OPS", "wOBA", "wRC+", "ISO", "BABIP", "RBI", "R", "SB"]:
-                return "batting"
+            if metric in ["AVG", "OBP", "SLG", "OPS", "wOBA", "wRC+", "ISO", "BABIP", "RBI", "R", "SB", "H", "2B", "3B"]:
+                return "batter"
             
-            # 模糊指標（HR、BB、SO 可能是打者或投手）
-            # 這時候繼續根據關鍵字判斷
-        
-        # ⭐ 2️⃣ 再根據關鍵字判斷
-        q = query.lower()
-        if any(k in q for k in PITCHING_KEYWORDS):
-            return "pitching"
-        if any(k in q for k in BATTING_KEYWORDS):
-            return "batting"
+            # ⭐模糊指標（HR、BB、SO 可能是打者或投手)待更新
+            # if metric in ["HR", "BB", "SO", "K%", "BB%"]:
+               
+        #  2️⃣ 再根據關鍵字判斷
+        if any(k in q for k in pitcher_KEYWORDS):
+            return "pitcher"
+        if any(k in q for k in batter_KEYWORDS):
+            return "batter"
         
         return None
 
@@ -330,9 +354,9 @@ class QueryRouter:
         qtype = self.detect_query_type(query, players, metric, top_n)
 
         # Type Boost（給 Hybrid Search）
-        if intent == "pitching":
+        if intent == "pitcher":
             type_boost = {"pitcher": 0.5, "batter": -0.3}
-        elif intent == "batting":
+        elif intent == "batter":
             type_boost = {"batter": 0.5, "pitcher": -0.3}
         else:
             type_boost = {"batter": 0.0, "pitcher": 0.0}
