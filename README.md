@@ -1,6 +1,7 @@
 # MLB Team Manager Assistant
 
 一個基於混合檢索（Vector Search + BM25）和 LLM 的 MLB 球員數據分析系統，具備完整的評估指標追蹤功能。
+<img width="1839" height="1138" alt="image" src="https://github.com/user-attachments/assets/3db804eb-7dbd-499f-a6db-577c9bd03243" />
 
 ---
 
