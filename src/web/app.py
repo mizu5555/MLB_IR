@@ -185,255 +185,184 @@ def serialize_hit(rec: dict, idx: int) -> dict:
 
 def generate_rag_answer(query, hits, routed):
     """
-    生成 RAG 回答 v6 - 使用模板系統
+    根據 Query Type 生成結構化回答
     
-    改進：
-    1. 使用 answer_templates 生成結構化回答
-    2. Factual Query：先回答主要指標，再列出相關數據
-    3. Ranking Query：顯示排名列表
-    4. Comparison Query：區分多球員/多賽季比較
+    v6.0.2 修正：
+    1. Comparison 查詢時過濾 N/A 值（解決大谷多賽季崩潰）
+    2. 使用 answer_templates_v3 的 is_valid_value() 函數
+    3. 投手的 AVG 使用 get_metric_name() 轉換為 BAA
     """
-    if not hits:
-        return "沒有找到相關數據。"
+    from answer_templates import (
+        format_factual_answer,
+        format_ranking_answer,
+        format_comparison_answer,
+        is_valid_value,  # ⭐ v6.0.2: 新增
+        get_metric_name,  # ⭐ v6.0.2: 新增
+    )
     
     qtype = routed.get("query_type", "factual")
+    metric = routed.get("metric")
     players = routed.get("players", [])
     seasons = routed.get("seasons", [])
-    metric = routed.get("metric")
-    top_n = routed.get("top_n", 10)
+    intent = routed.get("intent")
     
-    # ================================================================
-    # 1️⃣ Ranking Query
-    # ================================================================
-    if qtype == "ranking":
-        if not metric:
-            # 沒有指定 metric，使用傳統格式
-            answer = f"找到 {len(hits)} 筆相關數據。前 {min(top_n, len(hits))} 名最相關的結果：\n\n"
-            for i, h in enumerate(hits[:top_n], 1):
-                answer += f"{i}. {h['player_name']} ({h.get('season', '')} {h.get('team', '')}) - {h.get('type', '')}\n"
-            answer += f"\n詳細數據可以參考下方「原始數據來源」。"
-            return answer
+    # ============================================================
+    # 1. Factual Query（單一數據查詢）
+    # ============================================================
+    if qtype == "factual":
+        if not hits:
+            return "沒有找到相關數據。"
         
-        # 有指定 metric，使用模板
-        season = seasons[0] if seasons else (hits[0].get("season") if hits else 2024)
-        player_type = hits[0].get("type", "batter") if hits else "batter"
+        # 取第一筆最相關的結果
+        hit = hits[0]
+        player_name = hit.get("player_name")
+        season = hit.get("season")
+        team = hit.get("team")
+        player_type = hit.get("type")
+        stats = hit.get("stats", {})
         
-        # 使用智能統計選擇
-        print(f"\n   🎯 智能選擇統計數據 (Ranking):")
-        print(f"      查詢: {query}")
-        print(f"      Metric: {metric}")
-        print(f"      類型: {player_type}")
-        
-        key_stats = select_stats_for_comparison(routed, player_type)
-        print(f"      選擇: {key_stats}")
-        
-        # 提取排名數據
-        rankings = extract_ranking_data(hits[:top_n], metric)
-        
-        # 使用模板生成回答
-        if TEMPLATES_AVAILABLE:
-            answer = format_ranking_answer(
-                season=season,
-                metric=metric,
-                rankings=rankings,
-                season_specified=(len(seasons) > 0),
-                player_type=player_type
-            )
-        else:
-            # Fallback：傳統格式
-            answer = f"以下是 {season} 年的 {metric} 前 {len(rankings)} 名：\n\n"
-            for r in rankings:
-                answer += f"{r['rank']}. {r['player']} ({r['team']}) – {r['value']}\n"
-            answer += "\n詳細數據可以參考下方「原始數據來源」。"
-        
-        return answer
-    
-    # ================================================================
-    # 2️⃣ Comparison Query
-    # ================================================================
-    if qtype == "comparison":
-        # 按球員分組
-        player_data = {}
-        for h in hits:
-            pname = h.get("player_name")
-            if pname not in player_data:
-                player_data[pname] = []
-            player_data[pname].append(h)
-        
-        # 只保留查詢中的球員
-        if players:
-            player_data = {p: data for p, data in player_data.items() 
-                          if any(p.lower() in query_p.lower() or query_p.lower() in p.lower() 
-                                 for query_p in players)}
-        
-        # 判斷比較類型
-        if len(player_data) >= 2:
-            # 多球員比較
-            comparison_type = "multi_player"
-        elif len(player_data) == 1 and len(seasons) >= 2:
-            # 單球員多賽季比較
-            comparison_type = "multi_season"
-        else:
-            # 不符合比較條件，回到 Factual
-            qtype = "factual"
-        
-        if qtype == "comparison":
-            season = seasons[0] if seasons else hits[0].get("season", "")
-            common_type = hits[0].get("type", "batter")
+        if metric:
+            value = stats.get(metric)
             
-            # 使用智能統計選擇
-            print(f"\n   🎯 智能選擇統計數據 (Comparison):")
-            print(f"      查詢: {query}")
-            print(f"      Metric: {metric}")
-            print(f"      類型: {common_type}")
-            
-            key_stats = select_stats_for_comparison(routed, common_type)
-            print(f"      選擇: {key_stats}")
-            
-            # 準備比較數據
-            comparisons = []
-            
-            if comparison_type == "multi_player":
-                # 多球員比較：每個球員取一筆數據
-                for pname, data_list in player_data.items():
-                    matching = [d for d in data_list if d.get("type") == common_type]
-                    if matching:
-                        d = matching[0]
-                        stats = d.get("stats", {})
-                        comparisons.append({
-                            "player": pname,
-                            "season": d.get("season"),
-                            "value": stats.get(metric, "N/A") if metric else "N/A",
-                            "team": d.get("team", ""),
-                            "stats": stats
-                        })
-            
-            elif comparison_type == "multi_season":
-                # 單球員多賽季比較
-                pname = list(player_data.keys())[0]
-                for d in player_data[pname]:
-                    stats = d.get("stats", {})
-                    comparisons.append({
-                        "player": pname,
-                        "season": d.get("season"),
-                        "value": stats.get(metric, "N/A") if metric else "N/A",
-                        "team": d.get("team", ""),
-                        "stats": stats
-                    })
-            
-            # 使用模板生成回答
-            if TEMPLATES_AVAILABLE and comparisons:
-                answer = format_comparison_answer(
-                    metric=metric,
-                    comparisons=comparisons,
-                    season=season,
-                    comparison_type=comparison_type
-                )
-            else:
-                # Fallback：傳統格式
-                answer = f"{season} 年數據比較：\n\n"
-                for comp in comparisons:
-                    answer += f"- {comp['player']} ({comp['team']}): {comp['value']}\n"
-                answer += "\n詳細數據可以參考下方「原始數據來源」。"
-            
-            return answer
-    
-    # ================================================================
-    # 3️⃣ Factual Query
-    # ================================================================
-    # 單一結果
-    if len(hits) == 1:
-        h = hits[0]
-        stats = h.get('stats', {})
-        player_type = h.get('type', 'batter')
-        player_name = h.get('player_name', 'Unknown')
-        season = h.get('season', '')
-        team = h.get('team', '')
-        
-        if not stats:
-            return f"找到 {player_name} 的數據，但無統計資料。"
-        
-        # 使用智能統計選擇
-        print(f"\n   🎯 智能選擇統計數據 (Factual - 單一):")
-        print(f"      查詢: {query}")
-        print(f"      Metric: {metric}")
-        print(f"      類型: {player_type}")
-        
-        key_stats = select_stats_for_comparison(routed, player_type)
-        print(f"      選擇: {key_stats}")
-        
-        # 如果有指定 metric，使用模板
-        if metric and metric in stats and TEMPLATES_AVAILABLE:
-            # 準備相關統計
-            related_stats = {k: stats[k] for k in key_stats if k in stats and k != metric}
-            
-            answer = format_factual_answer(
+            # 使用 answer_templates 的 format_factual_answer()
+            return format_factual_answer(
                 player_name=player_name,
                 season=season,
                 metric=metric,
-                value=stats[metric],
-                related_stats=related_stats,
+                value=value,
+                related_stats=stats,
                 team=team,
-                player_type=player_type,
-                season_specified=(len(seasons) > 0)
+                player_type=player_type
             )
+        
+        # 如果沒有指定 metric，顯示完整數據
         else:
-            # Fallback：傳統格式
-            answer = f"找到 {player_name} 在 {season} 年的數據（{team}）。\n\n"
-            player_type_zh = "投球表現" if player_type == "pitcher" else "打擊表現"
-            answer += f"{player_type_zh}：\n"
+            player_type_zh = "投手" if player_type == "pitcher" else "打者"
+            answer = f"{player_name} 在 {season} 年（{team}）的 {player_type_zh} 數據：\n\n"
+            
+            # 顯示關鍵統計
+            if player_type == "pitcher":
+                key_stats = ["ERA", "WHIP", "K/9", "BB/9", "FIP", "IP", "W", "L"]
+            else:
+                key_stats = ["AVG", "OBP", "SLG", "OPS", "HR", "RBI", "wRC+"]
             
             for key in key_stats:
-                if key in stats:
-                    answer += f"- {key}: {stats[key]}\n"
+                if key in stats and is_valid_value(stats[key]):
+                    metric_name = get_metric_name(key, player_type)
+                    from answer_templates import format_value
+                    formatted = format_value(stats[key], key)
+                    answer += f"- {metric_name}: {formatted}\n"
             
-            answer += "\n詳細數據可以參考下方「原始數據來源」。"
-        
-        return answer
+            return answer
     
-    # 多筆結果（2-3 筆）
-    elif len(hits) <= 3:
-        answer = f"找到 {len(hits)} 筆相關數據：\n\n"
+    # ============================================================
+    # 2. Ranking Query（排名查詢）
+    # ============================================================
+    elif qtype == "ranking":
+        if not hits or not metric:
+            return "沒有找到相關數據。"
         
-        player_type = hits[0].get('type', 'batter')
-        key_stats = select_stats_for_comparison(routed, player_type)
+        season = seasons[0] if seasons else None
         
-        print(f"\n   🎯 智能選擇統計數據 (Factual - 多筆):")
-        print(f"      選擇: {key_stats}")
-        
-        for i, h in enumerate(hits, 1):
-            stats = h.get('stats', {})
-            answer += f"{i}. {h['player_name']} ({h['season']} {h['team']}) - {h['type']}\n"
+        # 從 hits 中提取排名數據
+        rankings = []
+        for hit in hits:
+            player_name = hit.get("player_name")
+            team = hit.get("team")
+            player_type = hit.get("type")
+            stats = hit.get("stats", {})
+            value = stats.get(metric)
             
-            # 顯示前 3 個統計
-            key_stats_values = []
-            for k in key_stats[:3]:
-                if k in stats:
-                    key_stats_values.append(f"{k}: {stats[k]}")
-            
-            if key_stats_values:
-                answer += f"   {' | '.join(key_stats_values)}\n"
+            if is_valid_value(value):
+                rankings.append({
+                    "player": player_name,
+                    "team": team,
+                    "value": value
+                })
         
-        answer += "\n詳細數據可以參考下方「原始數據來源」。"
-        return answer
+        # 使用 answer_templates 的 format_ranking_answer()
+        player_type = hits[0].get("type") if hits else None
+        return format_ranking_answer(
+            season=season,
+            metric=metric,
+            rankings=rankings,
+            player_type=player_type
+        )
     
-    # 多筆結果（4+ 筆）
+    # ============================================================
+    # 3. Comparison Query（比較查詢）
+    # ============================================================
+    elif qtype == "comparison":
+        if not hits or not metric:
+            return "沒有找到相關數據。"
+        
+        # 判斷比較類型
+        if len(players) >= 2 and len(seasons) <= 1:
+            # 多球員比較（同一年份）
+            comparison_type = "multi_player"
+            season = seasons[0] if seasons else None
+        elif len(players) == 1 and len(seasons) >= 2:
+            # 單球員多賽季比較
+            comparison_type = "multi_season"
+            season = None
+        else:
+            # 預設：多球員比較
+            comparison_type = "multi_player"
+            season = seasons[0] if seasons else None
+        
+        # 從 hits 中提取比較數據
+        comparisons = []
+        for hit in hits:
+            player_name = hit.get("player_name")
+            hit_season = hit.get("season")
+            team = hit.get("team")
+            player_type = hit.get("type")
+            stats = hit.get("stats", {})
+            value = stats.get(metric)
+            
+            if not is_valid_value(value):
+                continue
+            
+            comparisons.append({
+                "player": player_name,
+                "season": hit_season,
+                "team": team,
+                "value": value
+            })
+        
+        # 如果沒有有效數據
+        if not comparisons:
+            if season:
+                return f"沒有找到 {season} 年有效的數據進行比較。"
+            else:
+                return f"沒有找到有效的數據進行比較。可能這些球員在指定年份沒有該類型的出賽記錄。"
+        
+        # 使用 answer_templates 的 format_comparison_answer()
+        player_type = hits[0].get("type") if hits else None
+        return format_comparison_answer(
+            metric=metric,
+            comparisons=comparisons,
+            season=season,
+            comparison_type=comparison_type,
+            player_type=player_type
+        )
+    
+    # ============================================================
+    # 預設：顯示前幾筆結果
+    # ============================================================
     else:
-        answer = f"找到 {len(hits)} 筆相關數據。前 3 名最相關的結果：\n\n"
+        if not hits:
+            return "沒有找到相關數據。"
         
-        player_type = hits[0].get('type', 'batter')
-        key_stats = select_stats_for_comparison(routed, player_type)
-        
-        for i, h in enumerate(hits[:3], 1):
-            stats = h.get('stats', {})
-            answer += f"{i}. {h['player_name']} ({h['season']} {h['team']}) - {h['type']}"
+        answer = f"找到 {len(hits)} 筆相關數據：\n\n"
+        for i, hit in enumerate(hits[:5], 1):
+            player_name = hit.get("player_name")
+            season = hit.get("season")
+            team = hit.get("team")
+            player_type = hit.get("type")
             
-            # 顯示 1 個關鍵指標
-            if key_stats and key_stats[0] in stats:
-                answer += f" | {key_stats[0]}: {stats[key_stats[0]]}"
-            answer += "\n"
+            answer += f"{i}. {player_name} ({season} {team}) - {player_type}\n"
         
-        answer += f"\n（共 {len(hits)} 筆結果，請展開「檢索來源」查看完整資料）"
         return answer
 
 def generate_llm_response(query, routed, hits, history=None):

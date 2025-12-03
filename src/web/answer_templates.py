@@ -1,349 +1,353 @@
 # ============================================================
-# Answer Templates System
-# 回答模板系統 - 根據查詢類型生成結構化回答
+# Answer Templates v3 (v6.0.2 Bug Fix)
+# 修正：
+# 1. 投手的 AVG 顯示為「被打擊率 (BAA)」而非「打擊率 (AVG)」
+# 2. 加強所有模板的 N/A 值處理（過濾 None、"N/A"、空字串）
+# 3. format_comparison_answer() 過濾無效數據（解決大谷多賽季崩潰）
 # ============================================================
 
-def format_factual_answer(player_name, season, metric, value, related_stats, team="", player_type="batter", season_specified=True):
-    """
-    Factual Query 模板
+# ------------------------------------------------------------
+# Metric 名稱映射（中文顯示）
+# ------------------------------------------------------------
+METRIC_NAMES_ZH = {
+    # 打者指標
+    "AVG": "打擊率 (AVG)",
+    "OBP": "上壘率 (OBP)",
+    "SLG": "長打率 (SLG)",
+    "OPS": "OPS",
+    "HR": "全壘打 (HR)",
+    "RBI": "打點 (RBI)",
+    "H": "安打 (H)",
+    "R": "得分 (R)",
+    "SB": "盜壘 (SB)",
+    "BB": "保送 (BB)",
+    "SO": "三振 (SO)",
+    "wOBA": "wOBA",
+    "wRC+": "wRC+",
+    "ISO": "ISO",
+    "BABIP": "BABIP",
     
-    用途：查詢某球員「特定年份或最新年份」的某一項或多項數據。
+    # ⭐ v6.0.2: 投手的 AVG 是「被打擊率」
+    "BAA": "被打擊率 (BAA)",
     
-    參數：
-        player_name: 球員姓名
-        season: 賽季年份
-        metric: 主要查詢指標（如 "ERA", "HR"）
-        value: 主要指標的值
-        related_stats: dict，相關統計數據 {"FIP": 3.02, "xFIP": 3.21, ...}
-        team: 球隊縮寫
-        player_type: "batter" 或 "pitcher"
-        season_specified: 用戶是否指定了年份
-    
-    回傳：格式化的回答字串
-    """
-    
-    # 中文指標名稱映射
-    METRIC_NAMES_ZH = {
-        "ERA": "防禦率（ERA）",
-        "FIP": "FIP",
-        "xFIP": "xFIP",
-        "SIERA": "SIERA",
-        "WHIP": "WHIP",
-        "K%": "三振率（K%）",
-        "BB%": "保送率（BB%）",
-        "K/9": "每九局三振（K/9）",
-        "BB/9": "每九局保送（BB/9）",
-        "HR": "全壘打（HR）",
-        "AVG": "打擊率（AVG）",
-        "OBP": "上壘率（OBP）",
-        "SLG": "長打率（SLG）",
-        "OPS": "OPS",
-        "ISO": "純長打率（ISO）",
-        "wOBA": "wOBA",
-        "wRC+": "wRC+",
-        "WAR": "WAR",
-        "BABIP": "BABIP",
-        "Barrel%": "Barrel%",
-        "HardHit%": "強擊率（HardHit%）",
-        "EV": "平均擊球初速（EV）",
-        "LA": "平均發射角度（LA）",
-        "Spd": "速度（Spd）",
-        "SB": "盜壘（SB）",
-    }
-    
-    # 生成主要回答
-    metric_name = METRIC_NAMES_ZH.get(metric, metric)
-    team_str = f"（{team}）" if team else ""
-    
-    if season_specified:
-        answer = f"{player_name} 在 {season} 年 MLB 賽季{team_str}的{metric_name}為 **{value}**。\n\n"
-    else:
-        answer = f"{player_name} 最近一個賽季（{season}）{team_str}的{metric_name}為 **{value}**。\n\n"
-    
-    # 加入相關數據
-    if related_stats:
-        player_type_zh = "投球表現" if player_type == "pitcher" else "打擊表現"
-        answer += f"其他{player_type_zh}數據：\n"
-        
-        for key, val in related_stats.items():
-            if key != metric:  # 不重複顯示主要指標
-                stat_name = METRIC_NAMES_ZH.get(key, key)
-                answer += f"- {stat_name}: {val}\n"
-    
-    answer += "\n其他詳細數據可以參考下方「原始數據來源」。"
-    
-    return answer
+    # 投手指標
+    "ERA": "防禦率 (ERA)",
+    "WHIP": "WHIP",
+    "FIP": "FIP",
+    "xFIP": "xFIP",
+    "SIERA": "SIERA",
+    "K/9": "K/9",
+    "BB/9": "BB/9",
+    "K/BB": "K/BB",
+    "IP": "投球局數 (IP)",
+    "W": "勝場 (W)",
+    "L": "敗場 (L)",
+    "SV": "救援成功 (SV)",
+    "K%": "三振率 (K%)",
+    "BB%": "保送率 (BB%)",
+}
+
+# ⭐ v6.0.2: 新增 - 投手指標的 Metric 名稱（用於判斷是否需要轉換 AVG → BAA）
+PITCHER_METRICS = {
+    "ERA", "WHIP", "FIP", "xFIP", "SIERA",
+    "K/9", "BB/9", "K/BB", "IP", "W", "L", "SV",
+    "K%", "BB%",
+}
 
 
-def format_ranking_answer(season, metric, rankings, season_specified=True, player_type="batter"):
+# ------------------------------------------------------------
+# 工具函式：處理 Metric 名稱（投手 AVG → BAA）
+# ------------------------------------------------------------
+def get_metric_name(metric: str, player_type: str = None) -> str:
     """
-    Ranking Query 模板
+    取得 Metric 的中文名稱
     
-    用途：查詢一整年聯盟排名，如「2023 全壘打前5名」。
-    
-    參數：
-        season: 賽季年份
-        metric: 排名指標（如 "HR", "ERA"）
-        rankings: list of dict，排名數據
-                  [{"rank": 1, "player": "Judge", "value": 58, "team": "NYY"}, ...]
-        season_specified: 用戶是否指定了年份
-        player_type: "batter" 或 "pitcher"
-    
-    回傳：格式化的回答字串
+    v6.0.2 特殊處理：
+    - 如果是投手的 AVG，顯示為「被打擊率 (BAA)」
+    - 如果是打者的 AVG，顯示為「打擊率 (AVG)」
     """
+    if metric == "AVG" and player_type == "pitcher":
+        return "被打擊率 (BAA)"
     
-    METRIC_NAMES_ZH = {
-        "ERA": "防禦率（ERA）",
-        "FIP": "FIP",
-        "WHIP": "WHIP",
-        "K%": "三振率（K%）",
-        "K/9": "每九局三振（K/9）",
-        "HR": "全壘打",
-        "AVG": "打擊率",
-        "OBP": "上壘率",
-        "SLG": "長打率",
-        "OPS": "OPS",
-        "wRC+": "wRC+",
-        "WAR": "WAR",
-        "RBI": "打點",
-        "SB": "盜壘",
-    }
-    
-    metric_name = METRIC_NAMES_ZH.get(metric, metric)
-    
-    if season_specified:
-        answer = f"以下是 MLB {season} 年的 **{metric_name}** 前 {len(rankings)} 名：\n\n"
-    else:
-        answer = f"您未指定年份，以下為最新賽季（{season}）的 **{metric_name}** 排名：\n\n"
-    
-    # 生成排名列表
-    for rank_data in rankings:
-        rank = rank_data.get("rank", "?")
-        player = rank_data.get("player", "Unknown")
-        value = rank_data.get("value", "N/A")
-        team = rank_data.get("team", "")
-        
-        team_str = f" ({team})" if team else ""
-        answer += f"{rank}. **{player}**{team_str} – {value}\n"
-    
-    answer += "\n其他詳細數據可以參考下方「原始數據來源」。"
-    
-    return answer
+    return METRIC_NAMES_ZH.get(metric, metric)
 
 
-def format_comparison_answer(metric, comparisons, season=None, comparison_type="multi_player"):
+# ------------------------------------------------------------
+# 工具函式：檢查數值是否有效
+# ------------------------------------------------------------
+def is_valid_value(value):
     """
-    Comparison Query 模板
-    
-    用途：比較兩球員、或同一球員兩年份。
-    
-    參數：
-        metric: 比較指標（如 "HR", "ERA"）
-        comparisons: list of dict，比較數據
-                     [{"player": "Ohtani", "season": 2023, "value": 44, "team": "LAA"}, ...]
-        season: 賽季年份（用於多球員比較）
-        comparison_type: "multi_player"（多球員）或 "multi_season"（多賽季）
-    
-    回傳：格式化的回答字串
+    檢查數值是否有效（不是 None、N/A、空字串）
     """
+    if value is None:
+        return False
+    if value == "N/A":
+        return False
+    if isinstance(value, str) and value.strip() == "":
+        return False
     
-    METRIC_NAMES_ZH = {
-        "ERA": "防禦率（ERA）",
-        "FIP": "FIP",
-        "WHIP": "WHIP",
-        "K%": "三振率（K%）",
-        "HR": "全壘打",
-        "AVG": "打擊率",
-        "OBP": "上壘率",
-        "SLG": "長打率",
-        "OPS": "OPS",
-        "wRC+": "wRC+",
-        "WAR": "WAR",
-    }
+    # 嘗試轉換為 float（確保是數值）
+    try:
+        float(value)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
+# ------------------------------------------------------------
+# 工具函式：格式化數值
+# ------------------------------------------------------------
+def format_value(value, metric: str = None):
+    """
+    格式化數值顯示
+    """
+    if not is_valid_value(value):
+        return "N/A"
     
-    metric_name = METRIC_NAMES_ZH.get(metric, metric) if metric else "數據"
-    
-    if comparison_type == "multi_player":
-        # 多球員比較（同年）
-        if season:
-            answer = f"{season} 年賽季中，**{metric_name}** 比較如下：\n\n"
-        else:
-            answer = f"**{metric_name}** 比較如下：\n\n"
+    try:
+        val = float(value)
         
-        # 排序（數值由高到低）
-        sorted_comparisons = sorted(comparisons, key=lambda x: float(x.get("value", 0)), reverse=True)
+        # 百分比指標（K%, BB%）
+        if metric and "%" in metric:
+            return f"{val:.1f}%"
         
-        for comp in sorted_comparisons:
-            player = comp.get("player", "Unknown")
-            value = comp.get("value", "N/A")
-            team = comp.get("team", "")
-            
-            team_str = f" ({team})" if team else ""
-            answer += f"- **{player}**{team_str}: {value}\n"
+        # 防禦率、打擊率（3 位小數）
+        if metric in ["ERA", "AVG", "OBP", "SLG", "OPS", "WHIP", "FIP", "xFIP", "wOBA", "BABIP"]:
+            return f"{val:.3f}"
         
-        # 加入結論
-        if len(sorted_comparisons) >= 2:
-            best_player = sorted_comparisons[0].get("player", "")
-            best_value = sorted_comparisons[0].get("value", "")
-            answer += f"\n結論：**{best_player}** 的 {metric_name} 較佳（{best_value}）。\n"
-    
-    else:
-        # 單球員多賽季比較
-        player_name = comparisons[0].get("player", "Unknown") if comparisons else "Unknown"
-        answer = f"**{player_name}** 在不同賽季的 **{metric_name}** 比較如下：\n\n"
+        # 整數（HR, RBI, W, L, SV）
+        if metric in ["HR", "RBI", "W", "L", "SV", "H", "R", "SB", "BB", "SO"]:
+            return f"{int(val)}"
         
-        # 按年份排序
-        sorted_comparisons = sorted(comparisons, key=lambda x: x.get("season", 0))
+        # 投球局數（1 位小數）
+        if metric == "IP":
+            return f"{val:.1f}"
         
-        for comp in sorted_comparisons:
-            season_year = comp.get("season", "?")
-            value = comp.get("value", "N/A")
-            team = comp.get("team", "")
-            
-            team_str = f" ({team})" if team else ""
-            answer += f"- {season_year}{team_str}: {value}\n"
-        
-        # 計算差異
-        if len(sorted_comparisons) >= 2:
-            first_value = float(sorted_comparisons[0].get("value", 0))
-            last_value = float(sorted_comparisons[-1].get("value", 0))
-            diff = last_value - first_value
-            
-            if diff > 0:
-                answer += f"\n趨勢：從 {sorted_comparisons[0].get('season')} 到 {sorted_comparisons[-1].get('season')} 增加了 **{diff:.2f}**。\n"
-            elif diff < 0:
-                answer += f"\n趨勢：從 {sorted_comparisons[0].get('season')} 到 {sorted_comparisons[-1].get('season')} 減少了 **{abs(diff):.2f}**。\n"
+        # 進階指標（整數或 1 位小數）
+        if metric in ["wRC+", "K/9", "BB/9", "K/BB"]:
+            if val >= 10:
+                return f"{int(val)}"
             else:
-                answer += f"\n趨勢：從 {sorted_comparisons[0].get('season')} 到 {sorted_comparisons[-1].get('season')} 維持穩定。\n"
+                return f"{val:.1f}"
+        
+        # 預設（3 位小數）
+        return f"{val:.3f}"
     
-    answer += "\n其他詳細數據可以參考下方「原始數據來源」。"
+    except:
+        return str(value)
+
+
+# ------------------------------------------------------------
+# 1. Factual Query 模板
+# ------------------------------------------------------------
+def format_factual_answer(
+    player_name, season, metric, value, 
+    related_stats=None, team=None, player_type=None
+):
+    """
+    Factual 查詢回答模板
+    
+    v6.0.2 修正：
+    1. 處理 N/A 或缺失值
+    2. 投手的 AVG 顯示為「被打擊率 (BAA)」
+    """
+    # ⭐ v6.0.2: 使用 get_metric_name() 處理投手 AVG
+    metric_name = get_metric_name(metric, player_type)
+    
+    # ⭐ 修正：處理 N/A 或缺失值
+    if not is_valid_value(value):
+        team_str = f"（{team}）" if team else ""
+        player_type_zh = "投手" if player_type == "pitcher" else "打者"
+        
+        # 判斷是否是跨類型查詢（投手被問打者指標 or 打者被問投手指標）
+        if metric in PITCHER_METRICS and player_type == "batter":
+            return f"{player_name} 在 {season} 年是以打者身份出賽，沒有 {metric_name} 數據。\n\n如果您想查詢投球數據，請指定投球的年份（如果該球員有投球記錄）。"
+        elif metric not in PITCHER_METRICS and player_type == "pitcher":
+            # 投手被問打者指標
+            if metric == "AVG":
+                return f"{player_name} 在 {season} 年是以投手身份出賽。\n\n💡 提示：如果您想查詢「被打擊率 (BAA)」，該球員的數據是 {format_value(value, 'BAA')}。如果您想查詢投手的「打擊率 (AVG)」，投手通常不作為主要打者，數據可能不完整。"
+            else:
+                return f"{player_name} 在 {season} 年是以投手身份出賽，沒有完整的 {metric_name} 數據（投手通常不作為主要打者）。\n\n如果您想查詢打擊數據，請指定打擊的年份。"
+        else:
+            return f"{player_name} 在 {season} 年{team_str}沒有 {metric_name} 數據。\n\n可能該球員該年度沒有該類型的出賽記錄，或是數據尚未統計完整。"
+    
+    # 格式化數值
+    formatted_value = format_value(value, metric)
+    
+    # 基本回答
+    team_str = f"（{team}）" if team else ""
+    answer = f"{player_name} 在 {season} 年{team_str}的 {metric_name} 為 **{formatted_value}**。"
+    
+    # 如果有相關數據，補充說明
+    if related_stats and isinstance(related_stats, dict):
+        extra_info = []
+        
+        # 根據 metric 補充相關數據
+        if metric in ["AVG", "OBP", "SLG"]:
+            if "OPS" in related_stats:
+                extra_info.append(f"OPS: {format_value(related_stats['OPS'], 'OPS')}")
+        
+        if metric == "HR":
+            if "RBI" in related_stats:
+                extra_info.append(f"打點 (RBI): {format_value(related_stats['RBI'], 'RBI')}")
+        
+        if metric == "ERA":
+            if "WHIP" in related_stats:
+                extra_info.append(f"WHIP: {format_value(related_stats['WHIP'], 'WHIP')}")
+            if "K/9" in related_stats:
+                extra_info.append(f"K/9: {format_value(related_stats['K/9'], 'K/9')}")
+        
+        if extra_info:
+            answer += "\n\n**相關數據**：" + " | ".join(extra_info)
     
     return answer
 
 
-# ============================================================
-# 工具函數：從檢索結果提取數據
-# ============================================================
-
-def extract_comparison_data(hits, metric, key_stats):
+# ------------------------------------------------------------
+# 2. Ranking Query 模板
+# ------------------------------------------------------------
+def format_ranking_answer(season, metric, rankings, player_type=None):
     """
-    從檢索結果中提取比較數據
+    Ranking 查詢回答模板
     
-    參數：
-        hits: 檢索結果列表
-        metric: 主要比較指標
-        key_stats: 要提取的統計列表
-    
-    回傳：list of dict
+    v6.0.2 修正：
+    1. 過濾 N/A 值
+    2. 投手的 AVG 顯示為「被打擊率 (BAA)」
     """
-    comparisons = []
+    # ⭐ v6.0.2: 使用 get_metric_name()
+    metric_name = get_metric_name(metric, player_type)
     
-    for hit in hits:
-        stats = hit.get("stats", {})
-        value = stats.get(metric, "N/A")
+    # ⭐ 修正：過濾 N/A 值
+    valid_rankings = []
+    for r in rankings:
+        val = r.get("value")
+        if is_valid_value(val):
+            valid_rankings.append(r)
+    
+    if not valid_rankings:
+        return f"沒有找到 {season} 年 {metric_name} 的有效數據。"
+    
+    # 標題
+    answer = f"### {season} 年 {metric_name} 排名前 {len(valid_rankings)} 名\n\n"
+    
+    # 排名列表
+    for i, r in enumerate(valid_rankings, 1):
+        player = r.get("player")
+        team = r.get("team", "")
+        value = r.get("value")
         
-        comparisons.append({
-            "player": hit.get("player_name", "Unknown"),
-            "season": hit.get("season", ""),
-            "value": value,
-            "team": hit.get("team", ""),
-            "stats": {k: stats.get(k, "N/A") for k in key_stats if k in stats}
-        })
-    
-    return comparisons
-
-
-def extract_ranking_data(hits, metric):
-    """
-    從檢索結果中提取排名數據
-    
-    參數：
-        hits: 檢索結果列表（已按 metric 排序）
-        metric: 排名指標
-    
-    回傳：list of dict
-    """
-    rankings = []
-    
-    for idx, hit in enumerate(hits, start=1):
-        stats = hit.get("stats", {})
-        value = stats.get(metric, "N/A")
+        formatted_value = format_value(value, metric)
+        team_str = f" ({team})" if team else ""
         
-        rankings.append({
-            "rank": idx,
-            "player": hit.get("player_name", "Unknown"),
-            "value": value,
-            "team": hit.get("team", ""),
-            "season": hit.get("season", "")
-        })
+        answer += f"{i}. **{player}**{team_str} - {formatted_value}\n"
     
-    return rankings
+    return answer
+
+
+# ------------------------------------------------------------
+# 3. Comparison Query 模板
+# ------------------------------------------------------------
+def format_comparison_answer(metric, comparisons, season=None, comparison_type="multi_player", player_type=None):
+    """
+    Comparison 查詢回答模板
+    
+    v6.0.2 修正：
+    1. 過濾 N/A 值（解決大谷多賽季崩潰）
+    2. 投手的 AVG 顯示為「被打擊率 (BAA)」
+    """
+    # ⭐ v6.0.2: 使用 get_metric_name()
+    metric_name = get_metric_name(metric, player_type)
+    
+    # ⭐⭐⭐ 關鍵修正：過濾 N/A 值 ⭐⭐⭐
+    valid_comparisons = []
+    for comp in comparisons:
+        val = comp.get("value")
+        if is_valid_value(val):
+            valid_comparisons.append(comp)
+    
+    if not valid_comparisons:
+        if season:
+            return f"沒有找到 {season} 年有效的 {metric_name} 數據進行比較。可能這些球員在指定年份沒有該類型的出賽記錄。"
+        else:
+            return f"沒有找到有效的 {metric_name} 數據進行比較。可能這些球員在指定年份沒有該類型的出賽記錄。"
+    
+    # 多球員比較
+    if comparison_type == "multi_player":
+        if season:
+            answer = f"### {season} 年 {metric_name} 比較\n\n"
+        else:
+            answer = f"### {metric_name} 比較\n\n"
+        
+        for comp in valid_comparisons:
+            player = comp.get("player")
+            team = comp.get("team", "")
+            value = comp.get("value")
+            
+            formatted_value = format_value(value, metric)
+            team_str = f" ({team})" if team else ""
+            
+            answer += f"- **{player}**{team_str}: {formatted_value}\n"
+        
+        return answer
+    
+    # 單球員多賽季比較
+    elif comparison_type == "multi_season":
+        player_name = valid_comparisons[0].get("player") if valid_comparisons else "該球員"
+        answer = f"### {player_name} 在不同賽季的 {metric_name} 比較\n\n"
+        
+        for comp in valid_comparisons:
+            season = comp.get("season")
+            team = comp.get("team", "")
+            value = comp.get("value")
+            
+            formatted_value = format_value(value, metric)
+            team_str = f" ({team})" if team else ""
+            
+            answer += f"- **{season}**{team_str}: {formatted_value}\n"
+        
+        return answer
+    
+    return "比較數據準備中..."
 
 
 # ============================================================
-# 測試函數
+# CLI 測試
 # ============================================================
-
 if __name__ == "__main__":
-    # 測試 Factual
     print("=" * 60)
-    print("測試 1: Factual Query")
+    print("Answer Templates v3 測試")
     print("=" * 60)
+    
+    # 測試 1: Factual（投手 AVG → BAA）
+    print("\n測試 1: 投手 AVG（應該顯示「被打擊率 (BAA)」）")
     answer = format_factual_answer(
         player_name="Yoshinobu Yamamoto",
         season=2024,
-        metric="ERA",
-        value=3.00,
-        related_stats={"FIP": 3.02, "xFIP": 3.21, "SIERA": 3.15},
-        team="LAD",
-        player_type="pitcher",
-        season_specified=True
-    )
-    print(answer)
-    print()
-    
-    # 測試 Ranking
-    print("=" * 60)
-    print("測試 2: Ranking Query")
-    print("=" * 60)
-    rankings = [
-        {"rank": 1, "player": "Aaron Judge", "value": 58, "team": "NYY"},
-        {"rank": 2, "player": "Kyle Schwarber", "value": 46, "team": "PHI"},
-        {"rank": 3, "player": "Shohei Ohtani", "value": 44, "team": "LAA"}
-    ]
-    answer = format_ranking_answer(
-        season=2024,
-        metric="HR",
-        rankings=rankings,
-        season_specified=True
-    )
-    print(answer)
-    print()
-    
-    # 測試 Comparison (多球員)
-    print("=" * 60)
-    print("測試 3: Comparison Query (多球員)")
-    print("=" * 60)
-    comparisons = [
-        {"player": "Shohei Ohtani", "season": 2023, "value": 0.304, "team": "LAA"},
-        {"player": "Aaron Judge", "season": 2023, "value": 0.267, "team": "NYY"}
-    ]
-    answer = format_comparison_answer(
         metric="AVG",
-        comparisons=comparisons,
-        season=2023,
-        comparison_type="multi_player"
+        value=0.226,
+        team="LAD",
+        player_type="pitcher"
     )
     print(answer)
-    print()
     
-    # 測試 Comparison (多賽季)
-    print("=" * 60)
-    print("測試 4: Comparison Query (多賽季)")
-    print("=" * 60)
+    # 測試 2: Factual（N/A 值）
+    print("\n測試 2: N/A 值處理")
+    answer = format_factual_answer(
+        player_name="Shohei Ohtani",
+        season=2024,
+        metric="ERA",
+        value="N/A",
+        team="LAD",
+        player_type="batter"
+    )
+    print(answer)
+    
+    # 測試 3: Comparison（過濾 N/A）
+    print("\n測試 3: Comparison 過濾 N/A")
     comparisons = [
-        {"player": "Shohei Ohtani", "season": 2022, "value": 34, "team": "LAA"},
-        {"player": "Shohei Ohtani", "season": 2023, "value": 44, "team": "LAA"}
+        {"player": "Shohei Ohtani", "season": 2022, "value": 44},
+        {"player": "Shohei Ohtani", "season": 2023, "value": "N/A"},  # 應該被過濾
+        {"player": "Shohei Ohtani", "season": 2024, "value": 54},
     ]
     answer = format_comparison_answer(
         metric="HR",
@@ -351,3 +355,5 @@ if __name__ == "__main__":
         comparison_type="multi_season"
     )
     print(answer)
+    
+    print("\n✅ 測試完成")
