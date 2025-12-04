@@ -2,8 +2,8 @@
 
 一個基於混合檢索（Vector Search + BM25）和 LLM 的 MLB 球員數據分析系統，具備完整的評估指標追蹤功能。
 <p float="left">
-  <img src="https://github.com/user-attachments/assets/acc3a304-750d-4b4a-aacf-965b74c4a956" width="49%" height="350"/>
-  <img src="https://github.com/user-attachments/assets/c5692571-f5b9-4ce8-9497-5ab3789dd782" width="49%" height="350"/>
+  <img src="https://github.com/user-attachments/assets/19401b82-854c-4d92-a623-34e12a073a33" width="49%" height="350"/>
+  <img src="https://github.com/user-attachments/assets/1dcbd96b-efc7-4bf8-9f26-8c4280060521" width="49%" height="350"/>
 </p>
 
 ---
@@ -239,7 +239,7 @@ python app.py
 
 #### 1. 純 RAG 模式 🔍
 - 精確數據查詢
-- 結構化答案（比較式/列表式）
+- 結構化答案
 - 適合事實型問題
 
 #### 2. LLM 對話模式 💬
@@ -300,6 +300,32 @@ Shohei Ohtani (LAA): 34
 Aaron Judge (NYY): 62
 
 詳細數據可以參考下方「原始數據來源」。
+```
+
+### Analysis 查詢（分析型）
+
+```
+Trout為什麼2024被三振這麼多
+```
+
+**RAG 回答範例**：
+```
+** Mike Trout 2023 年分析報告**
+問題診斷: 壓制力不足
+🔍 關鍵數據診斷
+打擊率 (AVG): 0.322
+BABIP: 0.367
+Contact%: 71.2%
+三振率 (K%): 24.3%
+📈 支援數據
+LD%: 23.3%
+GB%: 30.5%
+💡 分析重點
+接觸率是否不足 → 數據分析中...
+場內打擊率是否偏低（運氣） → 數據分析中...
+擊球型態是否不理想 → 數據分析中...
+🎯 改善建議
+提高接觸率：調整揮棒時機
 ```
 
 ---
@@ -535,6 +561,7 @@ http://localhost:8000/api/metrics
 - **Factual Query**：先回答主要指標，再補充相關數據
 - **Ranking Query**：結構化排名列表
 - **Comparison Query**：區分多球員/多賽季比較
+- **AnAnalysis Query**：數據說話，沒有數據就不給意見
 
 ### 2. 改進的 Query Router
 - 支援**單球員多賽季比較**（如：「Ohtani 2022 2023 全壘打」）
@@ -544,7 +571,7 @@ http://localhost:8000/api/metrics
 - 加入 **Top N** 顯示（Ranking 查詢時）
 
 ### 4. 加入範例查詢
-- 新增Factual/Ranking/Comparsion範例問題按鈕
+- 新增Factual/Ranking/Comparsion/Analysis 範例問題按鈕
 
 ### 5. 改善Ranking機制
 - Ranking不使用hybrid_search做查詢排名，直接從lookup_engine中根據對應Metric排序
@@ -609,6 +636,7 @@ cat results/metrics_log.jsonl
 - [x] 事實一致性驗證
 - [x] 網頁界面（純 RAG + LLM 對話模式）
 - [x] 雙語支援（中英文）
+- [x] RAG加入分析型回答 
 
 ### 計劃中
 - [ ] LLM 加入分析型回答
@@ -635,7 +663,7 @@ cat results/metrics_log.jsonl
 
 ## 📝 版本歷史
 
-**當前版本**: v6.0.4
+**當前版本**: v6.1.0
 **最後更新**: 2024-12-04
 
 **v6.0**
@@ -645,6 +673,7 @@ cat results/metrics_log.jsonl
 - Debug 面板優化
 - 修正Ranking抓不到stats問題
 - 改善Comparison二刀流選手會回答兩筆數據的問題
+- 加入Analysis問題
 
 **v5.0**
 - 新增完整評估指標系統

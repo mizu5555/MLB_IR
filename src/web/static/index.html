@@ -465,20 +465,29 @@
 
             const renderDebugPanel = () => {
                 if (!showDebug || !debugData || !debugData.routed) return null;
-                const { routed, structured, mode, eval_metrics } = debugData;
-                
+                const { routed, structured, mode, eval_metrics, search_results } = debugData;
+
                 return (
                     <div className="debug-panel">
                         <h4>🔧 Debug Info: Query Router</h4>
 
                         <div className="debug-grid">
-                            <div><span className="debug-label">Query Type:</span> {routed.query_type}</div>
-                            <div><span className="debug-label">Intent:</span> {routed.intent}</div>
-                            <div><span className="debug-label">Metric:</span> {routed.metric || 'N/A'}</div>
-                            <div><span className="debug-label">Season:</span> {routed.seasons?.join(', ') || 'N/A'}</div>
-                            <div><span className="debug-label">Target Players:</span> {routed.players?.join(', ') || 'None'}</div>
-                            <div><span className="debug-label">Execution Mode:</span> {mode}</div>
-                        </div>
+                        <div><span className="debug-label">Query Type:</span> {routed.query_type}</div>
+                        <div><span className="debug-label">Intent:</span> {routed.intent || 'null'}</div>
+                        
+                        {/* ⭐ 新增：Player Type（從檢索結果）*/}
+                        {search_results && search_results.length > 0 && (
+                            <div>
+                                <span className="debug-label">Player Type:</span> 
+                                <span style={{color: '#48bb78', fontWeight: 'bold'}}> {search_results[0].type}</span>
+                                <span style={{fontSize: '0.75em', color: '#90cdf4'}}> (from search)</span>
+                            </div>
+                        )}
+                        
+                        <div><span className="debug-label">Metric:</span> {routed.metric || 'N/A'}</div>
+                        <div><span className="debug-label">Season:</span> {routed.seasons?.join(', ') || 'N/A'}</div>
+                        <div><span className="debug-label">Target Players:</span> {routed.players?.join(', ') || 'None'}</div>
+                    </div>
 
                         {structured && (
                             <div style={{marginTop: 15}}>
@@ -511,7 +520,7 @@
                 );
             };
 
-            // ⭐ v6.0.4: 渲染範例問題按鈕（用戶要求的範例）
+            // ⭐ v6.1.0: 新增分析範例問題
             const renderExampleButtons = () => {
                 return (
                     <div className="example-selector">
@@ -524,6 +533,9 @@
                         <button className="example-btn" onClick={() => handleExampleClick("比較Judge跟Ohtani2022年的全壘打數")}>
                             <span className="example-label">Comparison:</span> 比較Judge跟Ohtani2022年的全壘打數
                         </button>
+                        <button className="example-btn example-btn-analysis" onClick={() => handleExampleClick("大谷2023年投球壓制力為什麼下降")}>
+                            <span className="example-label">Analysis:</span> 大谷2023年投球壓制力為什麼下降
+                        </button>
                     </div>
                 );
             };
@@ -535,7 +547,7 @@
                         <input
                             type="text"
                             className="query-input"
-                            placeholder="輸入查詢，例如：大谷 2023 投球、2024 全壘打前 10 名"
+                            placeholder="輸入查詢 (參考上面按鈕)"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && !loading && handleQuery()}

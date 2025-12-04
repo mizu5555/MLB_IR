@@ -135,6 +135,29 @@ def format_value(value, metric: str = None):
     
     except:
         return str(value)
+    
+# ============================================================
+# 工具函式：判斷統計是否越低越好
+# ===========================================================
+
+def is_lower_better(metric):
+    """判斷該統計是否越低越好"""
+    LOWER_IS_BETTER_STATS = {
+        # 投手指標（越低越好）
+        "ERA", "FIP", "xFIP", "SIERA", "WHIP",
+        "BB/9", "H/9", "HR/9", "BB%",
+        "ERA-", "FIP-", "xFIP-",
+        "BABIP",  # 投手的 BABIP
+        "O-Contact%",
+        "Z-Swing%",
+        # 打者指標（越低越好）
+        "K%",  # 打者的三振率
+        "O-Swing%",
+        "Chase%",
+        "SwStr%",
+        "GDP",
+    }
+    return metric in LOWER_IS_BETTER_STATS
 
 
 # ------------------------------------------------------------
@@ -309,6 +332,236 @@ def format_comparison_answer(metric, comparisons, season=None, comparison_type="
     
     return "比較數據準備中..."
 
+# ============================================================
+# Analysis Answer Template
+# ============================================================
+
+def format_analysis_answer(
+    player_name,
+    season,
+    problem_type,
+    player_data,
+    league_avg_data=None,
+    player_type="batter"
+):
+    """
+    生成結構化的分析報告
+    
+    Args:
+        player_name: 球員姓名
+        season: 賽季
+        problem_type: 問題類型（如 "壓制力不足"）
+        player_data: 球員數據 dict
+        league_avg_data: 聯盟平均數據 dict（可選）
+        player_type: 球員類型（batter/pitcher）
+    
+    Returns:
+        結構化的分析報告字串
+    """
+    from stat_selection_config import get_analysis_stats
+    
+    # 獲取分析配置
+    config = get_analysis_stats(problem_type)
+    main_stats = config["main_stats"]
+    supporting_stats = config["supporting_stats"]
+    analysis_focus = config["analysis_focus"]
+    
+    # === 報告標題 ===
+    answer = f"### 📊 {player_name} {season} 年分析報告\n\n"
+    answer += f"**問題診斷**: {problem_type}\n\n"
+    answer += "---\n\n"
+    
+    # === 1. 關鍵數據診斷 ===
+    answer += "#### 🔍 關鍵數據診斷\n\n"
+    
+    stats = player_data.get("stats", {})
+    
+    for metric in main_stats:
+        value = stats.get(metric)
+        
+        if not is_valid_value(value):
+            continue
+        
+        metric_name = get_metric_name(metric, player_type)
+        formatted_value = format_value(value, metric)
+        
+        # 計算與聯盟平均的差異
+        if league_avg_data and metric in league_avg_data:
+            league_avg = league_avg_data[metric]
+            diff = float(value) - float(league_avg)
+            
+            # 判斷好壞（考慮是否越低越好）
+            if is_lower_better(metric):
+                status = "✅ 優於平均" if diff < 0 else "❌ 劣於平均"
+                diff_str = f"{diff:+.2f}"
+            else:
+                status = "✅ 優於平均" if diff > 0 else "❌ 劣於平均"
+                diff_str = f"{diff:+.2f}"
+            
+            answer += f"- **{metric_name}**: {formatted_value} {status} (聯盟平均: {format_value(league_avg, metric)}, 差距: {diff_str})\n"
+        else:
+            answer += f"- **{metric_name}**: {formatted_value}\n"
+    
+    answer += "\n"
+    
+    # === 2. 支援數據分析 ===
+    answer += "#### 📈 支援數據\n\n"
+    
+    for metric in supporting_stats:
+        value = stats.get(metric)
+        
+        if not is_valid_value(value):
+            continue
+        
+        metric_name = get_metric_name(metric, player_type)
+        formatted_value = format_value(value, metric)
+        
+        answer += f"- **{metric_name}**: {formatted_value}\n"
+    
+    answer += "\n"
+    
+    # === 3. 分析結論 ===
+    answer += "#### 💡 分析重點\n\n"
+    
+    for i, focus in enumerate(analysis_focus, 1):
+        # 根據數據自動生成結論
+        conclusion = generate_focus_conclusion(focus, stats, main_stats, player_type)
+        answer += f"{i}. {focus}\n"
+        answer += f"   {conclusion}\n\n"
+    
+    # === 4. 建議 ===
+    answer += "#### 🎯 改善建議\n\n"
+    suggestions = generate_suggestions(problem_type, stats, main_stats, player_type)
+    for i, suggestion in enumerate(suggestions, 1):
+        answer += f"{i}. {suggestion}\n"
+    
+    return answer
+
+
+def generate_focus_conclusion(focus, stats, main_stats, player_type):
+    """
+    根據分析重點和數據生成結論
+    
+    例如：
+    - "三振能力是否下降" + K% 數據 → "K% 為 XX%，低於聯盟平均"
+    """
+    focus_lower = focus.lower()
+    
+    # 三振相關
+    if "三振" in focus_lower or "strikeout" in focus_lower:
+        k_pct = stats.get("K%")
+        if is_valid_value(k_pct):
+            value = float(k_pct)
+            
+            # 投手：K% 越高越好
+            if player_type == "pitcher":
+                if value > 25:
+                    return f"→ **K% {value:.1f}% 屬於優秀水準**，三振能力良好"
+                elif value > 20:
+                    return f"→ K% {value:.1f}% 屬於平均水準"
+                else:
+                    return f"→ **K% {value:.1f}% 偏低**，三振能力不足"
+            # 打者：K% 越低越好
+            else:
+                if value < 20:
+                    return f"→ K% {value:.1f}% 偏低，接觸能力良好"
+                elif value < 25:
+                    return f"→ K% {value:.1f}% 屬於平均水準"
+                else:
+                    return f"→ **K% {value:.1f}% 偏高**，三振過多影響表現"
+    
+    # 保送相關
+    if "保送" in focus_lower or "walk" in focus_lower or "控球" in focus_lower:
+        bb_pct = stats.get("BB%")
+        if is_valid_value(bb_pct):
+            value = float(bb_pct)
+            
+            # 投手：BB% 越低越好
+            if player_type == "pitcher":
+                if value < 7:
+                    return f"→ BB% {value:.1f}% 優秀，控球穩定"
+                elif value < 10:
+                    return f"→ BB% {value:.1f}% 屬於平均水準"
+                else:
+                    return f"→ **BB% {value:.1f}% 偏高**，控球需要改善"
+    
+    # 強擊球相關
+    if "強擊" in focus_lower or "hardhit" in focus_lower or "被打" in focus_lower:
+        hardhit = stats.get("HardHit%")
+        if is_valid_value(hardhit):
+            value = float(hardhit)
+            
+            if player_type == "pitcher":
+                if value < 35:
+                    return f"→ HardHit% {value:.1f}% 良好"
+                elif value < 40:
+                    return f"→ HardHit% {value:.1f}% 平均"
+                else:
+                    return f"→ **HardHit% {value:.1f}% 偏高**，容易被強襲"
+    
+    # 預設回應
+    return "→ 數據分析中..."
+
+
+def generate_suggestions(problem_type, stats, main_stats, player_type):
+    """
+    根據問題類型和數據生成建議
+    """
+    suggestions = []
+    
+    if problem_type == "壓制力不足":
+        k_pct = stats.get("K%")
+        if k_pct and float(k_pct) < 20:
+            suggestions.append("提升三振率：可能需要增加變化球使用或改善球速")
+        
+        csw = stats.get("CSW%")
+        if csw and float(csw) < 28:
+            suggestions.append("改善好球揮空率：增加邊角球進壘精準度")
+        
+        if not suggestions:
+            suggestions.append("整體壓制力需要提升，建議加強投球訓練")
+    
+    elif problem_type == "控球問題":
+        bb_pct = stats.get("BB%")
+        if bb_pct and float(bb_pct) > 10:
+            suggestions.append("降低保送率：專注於好球區控球訓練")
+        
+        suggestions.append("提高首球好球率，建立有利球數")
+        suggestions.append("加強邊角球進壘能力")
+    
+    elif problem_type == "打擊率低":
+        k_pct = stats.get("K%")
+        if k_pct and float(k_pct) > 25:
+            suggestions.append("降低三振率：改善擊球紀律與選球")
+        
+        contact = stats.get("Contact%")
+        if contact and float(contact) < 75:
+            suggestions.append("提高接觸率：調整揮棒時機")
+        
+        if not suggestions:
+            suggestions.append("專注於接觸訓練，提升擊球品質")
+    
+    elif problem_type == "長打力不足":
+        iso = stats.get("ISO")
+        if iso and float(iso) < 0.150:
+            suggestions.append("提升長打能力：強化力量訓練")
+        
+        ev = stats.get("EV")
+        if ev and float(ev) < 88:
+            suggestions.append("增加出棒初速：改善揮棒機制")
+        
+        if not suggestions:
+            suggestions.append("專注於力量與擊球角度優化")
+    
+    # 預設建議
+    if not suggestions:
+        suggestions = [
+            "持續監控關鍵數據變化",
+            "與教練團討論具體改善方案",
+            "參考聯盟頂尖球員的數據標準"
+        ]
+    
+    return suggestions
 
 # ============================================================
 # CLI 測試

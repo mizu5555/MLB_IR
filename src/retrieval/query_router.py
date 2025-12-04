@@ -298,16 +298,59 @@ class QueryRouter:
 
     # ------------------------------------------------------------
     # Query Type（factual / ranking / comparison / analysis）
-    # v6.0.3: 修正 Bug 2 - 識別「前 N 高/低」為 ranking
+    # v6.1.0 新增analysis
     # ------------------------------------------------------------
     def detect_query_type(self, query, players, metric, top_n):
+        
         q = query.lower()
 
-        # ⭐ v6.0.3: Ranking（前 N 名 / 前 N 高/低 / top N）
+        strong_analysis_keywords = [
+        # 中文關鍵字
+        "為什麼", "為何", "原因", "怎麼回事", "怎麼了",
+        "分析", "診斷", "問題", "建議", "改善",
+        "哪裡出問題", "什麼問題", "發生什麼事",
+        
+        # 英文強烈意圖
+        "why", "what happened", "what's wrong",
+        "analyze", "analysis", "diagnose", "problem",
+        "suggest", "improve", "issue", "where's the issue",
+        ]
+
+        supporting_keywords = [
+        # 表現相關（但必須配合強烈意圖）
+        "壓制力", "控球", "打擊率", "長打力", "選球",
+        "不佳", "下降", "低迷", "不好", "糟糕", "差",
+        
+        # 英文
+        "poor", "bad", "struggling", "decline",
+        "weakness", "strength",
+        ]
+
+        has_strong_intent = any(kw in q for kw in strong_analysis_keywords)
+    
+        if has_strong_intent:
+            # 有強烈意圖 → 確定是 analysis
+            return "analysis"
+        
+        # 檢查是否同時包含支援性關鍵字（需要至少 2 個）
+        support_count = sum(1 for kw in supporting_keywords if kw in q)
+        
+        if support_count >= 2 and len(query) > 10:
+            # 有多個支援性關鍵字，且查詢足夠長 → 可能是 analysis
+            # 但還需要排除其他明確的查詢類型
+            
+            # 排除：如果有數字（可能是 ranking 或 comparison）
+            if top_n or "前" in query or "top" in q:
+                pass  # 繼續往下判斷（不是 analysis）
+            elif "vs" in q or "比" in query or "跟" in query:
+                pass  # 繼續往下判斷（可能是 comparison）
+            else:
+                return "analysis"
+
         if top_n:
             return "ranking"
 
-        if "前" in query and ("名" in query or "高" in query or "低" in query or "快" in query or "慢" in query):
+        if ("前" in query or "最" in query) and ("名" in query or "高" in query or "低" in query or "快" in query or "慢" in query):
             return "ranking"
 
         if "top" in q and re.search(r"top\s*\d+", q):
@@ -404,6 +447,7 @@ if __name__ == "__main__":
     
     # 測試 Bug 2 和 Bug 3
     test_cases = [
+        "大谷2023年投球壓制力為什麼下降",
         "2023 防禦率前 3 低",
         "2023 全壘打前 3 高",
         "Ohtani 2023 全壘打",
