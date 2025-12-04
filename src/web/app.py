@@ -21,12 +21,14 @@ try:
         build_comparison_prompt,
         build_ranking_prompt,
     )
-    from stat_selection_config import (
+    from src.web.stat_selection_config import (
         select_stats_for_comparison, 
         get_stat_description,
-        is_lower_better
+        is_lower_better,
+        detect_problem_type, 
+        get_analysis_stats,
     )
-    
+
     LLM_AVAILABLE = True
 
 except ImportError as e:
@@ -262,20 +264,73 @@ def generate_rag_answer(query, hits, routed):
         format_factual_answer,
         format_ranking_answer,
         format_comparison_answer,
+        format_analysis_answer,
         is_valid_value,
         get_metric_name,
     )
+    from stat_selection_config import detect_problem_type, get_analysis_stats
     
     qtype = routed.get("query_type", "factual")
     metric = routed.get("metric")
     players = routed.get("players", [])
     seasons = routed.get("seasons", [])
     intent = routed.get("intent")
+
+    # ============================================================
+    # 0. Analysis Query（分析查詢）
+    # ============================================================
+    
+    if qtype == "analysis":
+        if not hits:
+            return "沒有找到相關數據進行分析。"
+        
+        # 取第一筆最相關的結果
+        hit = hits[0]
+        player_name = hit.get("player_name")
+        season = hit.get("season")
+        player_type = hit.get("type")
+        
+        # 識別問題類型
+        problem_type = detect_problem_type(query)
+        
+        if not problem_type:            
+            if player_type == "pitcher":
+                # 投手的建議範例
+                return f"無法識別具體問題類型。{player_name} 是投手，請嘗試更明確的描述：\n\n" \
+                       f"**投手分析範例**：\n" \
+                       f"- 「{player_name} 的控球為什麼這麼差」\n" \
+                       f"- 「{player_name} 的壓制力為什麼下降」\n" \
+                       f"- 「{player_name} 為什麼防禦率這麼高」\n" \
+                       f"- 「{player_name} 為什麼容易被長打」\n" \
+                       f"- 「{player_name} 為什麼三振率下降」"
+            
+            else:  # batter
+                # 打者的建議範例
+                return f"無法識別具體問題類型。{player_name} 是打者，請嘗試更明確的描述：\n\n" \
+                       f"**打者分析範例**：\n" \
+                       f"- 「{player_name} 的打擊率為什麼這麼低」\n" \
+                       f"- 「{player_name} 的長打力為什麼不足」\n" \
+                       f"- 「{player_name} 為什麼三振這麼多」\n" \
+                       f"- 「{player_name} 的選球為什麼這麼差」\n" \
+                       f"- 「{player_name} 最近為什麼狀態低迷」"
+        
+        # 獲取聯盟平均數據（未來可擴展）
+        league_avg_data = None
+        
+        # 生成分析報告
+        return format_analysis_answer(
+            player_name=player_name,
+            season=season,
+            problem_type=problem_type,
+            player_data=hit,
+            league_avg_data=league_avg_data,
+            player_type=player_type
+        )
     
     # ============================================================
     # 1. Factual Query（單一數據查詢）
     # ============================================================
-    if qtype == "factual":
+    elif qtype == "factual":
         if not hits:
             return "沒有找到相關數據。"
         
@@ -428,7 +483,7 @@ def generate_rag_answer(query, hits, routed):
             comparison_type=comparison_type,
             player_type=player_type
         )
-    
+      
     # ============================================================
     # 預設：顯示前幾筆結果
     # ============================================================
