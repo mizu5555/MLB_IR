@@ -53,7 +53,7 @@
         .mode-btn .title { font-weight: 600; font-size: 1rem; }
         .mode-btn .desc { font-size: 0.8rem; opacity: 0.8; margin-top: 2px; }
 
-        /* ⭐ v6.0.4: 範例問題按鈕 */
+        /* v6.0.4: 範例問題按鈕 */
         .example-selector {
             display: flex;
             gap: 10px;
@@ -193,7 +193,7 @@
             color: #666;
         }
         
-        /* ⭐ v6.0.4: 統計數據展開區域 */
+        /* v6.0.4: 統計數據展開區域 */
         .result-stats {
             margin-top: 12px;
             padding-top: 12px;
@@ -269,6 +269,8 @@
             overflow-x: auto;
             color: #90cdf4;
         }
+
+        
 
         /* --- LLM 聊天模式樣式 --- */
         .chat-layout { display: flex; flex-direction: column; height: 100%; flex: 1; }
@@ -415,7 +417,8 @@
                         routed: data.routed,
                         structured: data.structured,
                         mode: data.mode,
-                        eval_metrics: data.eval_metrics
+                        eval_metrics: data.eval_metrics,
+                        fact_check: data.fact_check
                     });
 
                     if (mode === 'rag') {
@@ -507,6 +510,57 @@
                                     <div><span className="debug-label">Precision@5:</span> {(eval_metrics.precision_at_5 * 100).toFixed(1)}%</div>
                                     <div><span className="debug-label">MRR:</span> {eval_metrics.mrr.toFixed(4)}</div>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* 新增：LLM Analysis 專用指標 */}
+                        {debugData.mode === 'llm_analysis' && debugData.fact_check && (
+                            <div style={{marginTop: 15}}>
+                                <h4>🤖 LLM Analysis Metrics</h4>
+                                <div className="debug-grid">
+                                    <div>
+                                        <span className="debug-label">Fact Consistency:</span> 
+                                        <span style={{
+                                            color: debugData.fact_check.confidence >= 0.95 ? '#48bb78' : '#f56565',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            {(debugData.fact_check.confidence * 100).toFixed(1)}%
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="debug-label">Hallucinations:</span> 
+                                        <span style={{
+                                            color: debugData.fact_check.hallucination_count === 0 ? '#48bb78' : '#f56565',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            {debugData.fact_check.hallucination_count}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="debug-label">Numbers Verified:</span> 
+                                        {debugData.fact_check.verified_numbers || 0}/{debugData.fact_check.total_numbers || 0}
+                                    </div>
+                                </div>
+                                
+                                {debugData.fact_check.violations && debugData.fact_check.violations.length > 0 && (
+                                    <details style={{marginTop: 10, border: 'none', background: 'transparent', padding: 0}}>
+                                        <summary style={{color: '#f56565', cursor: 'pointer', fontSize: '0.85rem'}}>
+                                            ⚠️ View Hallucination Details ({debugData.fact_check.violations.length})
+                                        </summary>
+                                        <div style={{
+                                            marginTop: 8,
+                                            padding: 10,
+                                            background: '#1a202c',
+                                            borderRadius: 4,
+                                            fontSize: '0.8rem',
+                                            color: '#fc8181'
+                                        }}>
+                                            {debugData.fact_check.violations.map((v, idx) => (
+                                                <div key={idx} style={{marginBottom: 5}}>• {v}</div>
+                                            ))}
+                                        </div>
+                                    </details>
+                                )}
                             </div>
                         )}
 

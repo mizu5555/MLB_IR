@@ -61,6 +61,9 @@ except ImportError as e:
     def is_lower_better(stat_key):
         return stat_key in ["ERA", "WHIP", "FIP", "K%", "BB%"]
 
+from src.generation.llm_analysis_engine import AnalysisLLMEngine, get_league_averages
+from src.evaluation.fact_checker import FactChecker
+
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 CORS(app)
 
@@ -630,9 +633,8 @@ def api_query():
                 }
             })
 
-
         # ============================================================
-        # Factual & Comparison → 執行 Hybrid Search 
+        # Factual / Comparison / Analysis → 執行 Hybrid Search 
         # ============================================================
 
         normalized = routed.get("normalized_query") or query
@@ -675,7 +677,137 @@ def api_query():
 
         print(f"\n✅ 序列化完成: {len(hits)} 筆")
 
-        # 5) 生成回答
+        # ============================================================
+        # Analysis Query 特殊處理
+        # ============================================================
+        if qtype == "analysis":
+            if not hits:
+                return jsonify({
+                    "ok": False, 
+                    "error": "沒有找到相關數據進行分析"
+                }), 400
+            
+            # 取第一筆最相關的結果
+            hit = hits[0]
+            player_name = hit.get("player_name")
+            season = hit.get("season")
+            player_type = hit.get("type")
+            
+            # 識別問題類型
+            from src.web.stat_selection_config import detect_problem_type
+            problem_type = detect_problem_type(query)
+            
+            if not problem_type:
+                # 根據球員類型給出建議
+                if player_type == "pitcher":
+                    suggestion = f"""無法識別具體問題類型。{player_name} 是投手，請嘗試更明確的描述：
+
+                                **投手分析範例**：
+                                - 「{player_name} 的控球為什麼這麼差」
+                                - 「{player_name} 的壓制力為什麼下降」
+                                - 「{player_name} 為什麼防禦率這麼高」
+                                - 「{player_name} 為什麼容易被長打」"""
+                else:
+                    suggestion = f"""無法識別具體問題類型。{player_name} 是打者，請嘗試更明確的描述：
+
+                                    **打者分析範例**：
+                                    - 「{player_name} 的打擊率為什麼這麼低」
+                                    - 「{player_name} 的長打力為什麼不足」
+                                    - 「{player_name} 為什麼三振這麼多」
+                                    - 「{player_name} 的選球為什麼這麼差」"""
+                
+                return jsonify({
+                    "ok": False,
+                    "error": suggestion
+                }), 400
+            
+            # 整合 LLM Analysis
+            if mode == "llm" and OLLAMA_AVAILABLE:
+                # LLM 路徑
+                llm_engine = AnalysisLLMEngine()
+                fact_checker = FactChecker()
+                league_avg = get_league_averages(season, player_type)
+                
+                try:
+                    llm_answer = llm_engine.analyze(
+                        query=query,
+                        player_data=hit,
+                        problem_type=problem_type,
+                        league_avg=league_avg
+                    )
+                    
+                    # 事實檢查
+                    fact_check = fact_checker.verify_facts(llm_answer, hits)
+                    
+                    elapsed_time = time.time() - start_time
+                    
+                    return jsonify({
+                        "ok": True,
+                        "query": query,
+                        "routed": routed,
+                        "mode": "llm_analysis",
+                        "answer": llm_answer,
+                        "problem_type": problem_type,
+                        "fact_check": fact_check,
+                        "player": {
+                            "name": player_name,
+                            "season": season,
+                            "type": player_type
+                        },
+                        "search_results": hits,
+                        "metrics": {
+                            **metrics,
+                            "response_time": elapsed_time,
+                            "fact_consistency": fact_check["confidence"],
+                            "hallucination_count": fact_check["hallucination_count"]
+                        }
+                    })
+                    
+                except Exception as e:
+                    print(f"❌ LLM Analysis 錯誤: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    # Fallback to RAG
+                    mode = "rag"
+            
+            # RAG 路徑
+            if mode == "rag" or not OLLAMA_AVAILABLE:
+                from src.web.answer_templates import format_analysis_answer
+                league_avg = get_league_averages(season, player_type) if 'get_league_averages' in dir() else None
+                
+                answer = format_analysis_answer(
+                    player_name=player_name,
+                    season=season,
+                    problem_type=problem_type,
+                    player_data=hit,
+                    league_avg_data=league_avg,
+                    player_type=player_type
+                )
+                
+                elapsed_time = time.time() - start_time
+                
+                return jsonify({
+                    "ok": True,
+                    "query": query,
+                    "routed": routed,
+                    "mode": "rag_analysis",
+                    "answer": answer,
+                    "problem_type": problem_type,
+                    "player": {
+                        "name": player_name,
+                        "season": season,
+                        "type": player_type
+                    },
+                    "search_results": hits,
+                    "metrics": {
+                        **metrics,
+                        "response_time": elapsed_time
+                    }
+                })
+
+        # ============================================================
+        # 生成回答
+        # ============================================================
         if mode == "llm" and OLLAMA_AVAILABLE:
             answer = generate_llm_response(query, routed, raw_hits, history)
         else:
@@ -683,7 +815,9 @@ def api_query():
 
         elapsed_time = time.time() - start_time
 
-        # 6) 記錄指標 + 回傳
+        # ============================================================
+        # 記錄指標 + 回傳
+        # ============================================================
         response = {
             "ok": True,
             "query": query,
@@ -706,6 +840,7 @@ def api_query():
         print(f"{'='*60}\n")
 
         return jsonify(response)
+    
 
     except Exception as e:
         import traceback
