@@ -186,21 +186,15 @@ ollama list
 
 ### 4. 準備數據
 
-```bash
-cd src/datapreprocess
-python download.py
-```
 確保 `data/raw_adv/` 目錄包含數據文件：
 - `statcast_batters_enhanced.csv`
 - `statcast_pitchers_enhanced.csv`
 
-或是生成數據文件(自訂年份)：
+第一次使用請生成數據文件(自訂年份)：
 ```bash
 cd src/datapreprocess
 python download.py
 ```
-- `statcast_enhanced.json`
-
 ### 5. 建立索引
 
 ```bash
@@ -211,12 +205,7 @@ python step1_build_training_data.py
 python step2_build_vector_index.py
 python step3_build_bm25_index.py
 ```
-
-**生成文件**:
-- `data/mlb_data_adv/training_data.json` 
-- `data/mlb_data_adv/vector_index.faiss` 
-- `data/mlb_data_adv/vector_embeddings.npy` 
-- `data/mlb_data_adv/bm25_index.pkl`
+所有數據文件會被儲存到 `data/mlb_data_adv` 底下。
 
 ---
 
