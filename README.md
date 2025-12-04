@@ -205,7 +205,7 @@ python step1_build_training_data.py
 python step2_build_vector_index.py
 python step3_build_bm25_index.py
 ```
-所有數據文件會被儲存到 `data/mlb_data_adv` 底下。
+所有數據文件會被儲存到 `data/mlb_data_adv/` 資料夾底下。
 
 ---
 
