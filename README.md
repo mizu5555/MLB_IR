@@ -2,8 +2,12 @@
 
 一個基於混合檢索（Vector Search + BM25）和 LLM 的 MLB 球員數據分析系統，具備完整的評估指標追蹤功能。
 <p float="left">
-  <img src="https://github.com/user-attachments/assets/19401b82-854c-4d92-a623-34e12a073a33" width="49%" height="350"/>
-  <img src="https://github.com/user-attachments/assets/1dcbd96b-efc7-4bf8-9f26-8c4280060521" width="49%" height="350"/>
+  <img src="https://github.com/user-attachments/assets/639f84f6-3214-429c-996b-6777bbc8be6e" width="49%" height="350"/>
+  <img src="https://github.com/user-attachments/assets/097999e8-18d7-4337-a3af-f75fc4e6c70a" width="49%" height="350"/>
+</p>
+<p float="left">
+  <img src="https://github.com/user-attachments/assets/246b9240-3359-46bd-a62f-0d9bce71c2b9" width="49%" height="350"/>
+  <img src="https://github.com/user-attachments/assets/3bb90609-3730-4da4-bde2-ee504623d732" width="49%" height="350"/>
 </p>
 
 ---
