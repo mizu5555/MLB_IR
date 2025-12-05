@@ -66,6 +66,7 @@
 | 指標 | 數值 | 說明 |
 |------|------|------|
 | **Recall@5** | 100.0% | 前5個結果包含所有相關文檔 |
+| **Precision@1** | 100.0% | 前5個結果中相關文檔比例 |
 | **Precision@5** | 66.7% | 前5個結果中相關文檔比例 |
 | **MRR** | 1.000 | 第一個相關結果在第1位 |
 | **Query Classification Accuracy** | 100% | 查詢分類準確率 |
@@ -134,7 +135,8 @@ mlb-team-manager-assistant/
 │   ├── evaluate.py                         # 評估腳本
 │   ├── view_metrics.py                     # 檢視指標腳本(需運行)
 │   ├── evaluate_analysis.py                # Analysis 評估腳本(需運行)
-│   └── check_database.py                   # 資料庫檢查
+│   ├── check_database.py                   # 資料庫檢查
+│   └── test_case.py                        # 測試案例
 │
 ├── result/ 
 │   └── metrics_log.jsonl                   # 評估指標記錄
@@ -698,6 +700,9 @@ python test/test_system.py
 
 # 評估數據集測試
 python test/evaluate.py
+
+# 生成測試案例及報告
+python test/test_case.py
 ```
 
 ### 查看評估指標
@@ -728,6 +733,20 @@ cat results/metrics_log.jsonl
 - 範例：
   - 第1名是相關結果 → MRR = 1.000
   - 第2名是相關結果 → MRR = 0.500
+  
+**Query Classification Accuracy**
+- 定義：QueryRouter 將查詢分類為 factual / ranking / comparison / analysis 時的準確率。
+- 計算：分類正確次數 / 測試總次數
+
+**Fact Consistency Score**
+- 回答中引用的數值是否「完全來源於真實資料庫」，沒有亂猜、幻覺或誤引用。
+- 評估：LLM/系統提供的數字是否在 JSON stats 裡出現？是否對應正確球員、年份？
+
+**Zero Hallucination Rate**
+- 定義：系統在回答時，是否產生不存在的欄位、球員紀錄、年份或錯誤的數值。
+
+**Avg Response Time**
+- 定義：系統從接受 query → 完成 hybrid retrieval → 回傳 JSON 所需的時間。
 
 ---
 

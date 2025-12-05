@@ -208,6 +208,23 @@ def evaluate_single_case(case: dict, mode: str) -> dict:
     insight_result = rate_insight_depth(answer, problem_type)
     result["insight_depth"] = insight_result["score"]
     result["insight_breakdown"] = insight_result["breakdown"]
+    hits = response.get("search_results", [])
+    if hits:
+        first = hits[0]
+        # 相關文檔定義：player + season 皆符合
+        relevant = True
+
+        if case.get("player"):
+            if case["player"].lower() not in first.get("player_name", "").lower():
+                relevant = False
+        
+        if case.get("season"):
+            if first.get("season") != case["season"]:
+                relevant = False
+
+        result["precision_at_1"] = 1.0 if relevant else 0.0
+    else:
+        result["precision_at_1"] = 0.0
     
     print(f"💡 洞察深度: {insight_result['score']:.1%}")
     print(f"   • 因果推理: {'✅' if insight_result['breakdown']['causal_reasoning'] else '❌'}")
@@ -269,6 +286,7 @@ def compare_modes():
         
         avg_fact = sum(r["fact_consistency"] for r in mode_results) / len(mode_results)
         avg_insight = sum(r["insight_depth"] for r in mode_results) / len(mode_results)
+        avg_p1 = sum(r.get("precision_at_1", 0.0) for r in mode_results) / len(mode_results)
         avg_time = sum(r["response_time"] for r in mode_results) / len(mode_results)
         total_hallucinations = sum(r["hallucination_count"] for r in mode_results)
         
