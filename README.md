@@ -85,7 +85,7 @@
 | Factual | 50      | 92.0%       |
 | Ranking | 50      | 100.0%      |
 | Comparison | 50   | 100.0%      |
-| Analysis | 42     | 100.0%      |
+| Analysis | 50     | 100.0%      |
 
 **Seasons Covered** | 2022-2024 | 涵蓋賽季 |
 
