@@ -87,10 +87,9 @@
 | Comparison | 50   | 100.0%      |
 | Analysis | 42     | 100.0%      |
 
-**Database Size** | 3252 | 球員記錄數量 |
 **Seasons Covered** | 2022-2024 | 涵蓋賽季 |
 
-
+**Database Size**   | 3252      | 球員記錄數量 |
 
 測試範例可參考 `test/reports` 中的 `full_test_report`。
 
@@ -649,7 +648,8 @@ Relevant: 2/3
   用戶: "大谷2023年投球壓制力為什麼下降？"
                     ↓
   [Query Router] → query_type = "analysis"
-                   plyaer_name = "Shohei Ohtani"
+                   player_name = "Shohei Ohtani"
+                   season = "2023"
                    Metric = "OPS"
                     ↓
   [Hybrid Search] → 檢索大谷 2023 投手數據
