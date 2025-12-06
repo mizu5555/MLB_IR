@@ -29,77 +29,191 @@ PLAYER_ALIAS = {
 # Metric 映射（Ranking + Comparison 使用）
 # ------------------------------------------------------------
 METRIC_MAP = {
-    # ============================================================
-    # 打者核心指標（最常查詢）
-    # ============================================================
-    
-    # 基礎打擊
+
+    # =========================
+    # 基礎打擊（Counting Stats）
+    # =========================
+    "hr": "HR",
     "全壘打": "HR",
-    "安打": "Hits",            # 注意：是 Hits 不是 H
+
+    "hits": "Hits",
+    "安打": "Hits",
+
+    "rbi": "RBI",
     "打點": "RBI",
-    "得分": "Runs",            # 注意：是 Runs 不是 R
+
+    "runs": "Runs",
+    "得分": "Runs",
+
+    "sb": "SB",
     "盜壘": "SB",
-    "三振": "SO",              # 打者被三振
+
+    "bb": "BB",
     "保送": "BB",
-    
-    # 打擊率指標
+
+    "so": "SO",
+    "三振": "SO",
+
+    # =========================
+    # 打擊率 / slash line
+    # =========================
+    "avg": "AVG",
     "打擊率": "AVG",
+
+    "obp": "OBP",
     "上壘率": "OBP",
+
+    "slg": "SLG",
     "長打率": "SLG",
-    "上壘加長打率": "OPS",
+
     "ops": "OPS",
-    
-    # 進階打擊指標
-    "woba": "wOBA",
-    "wrc+": "wRC+",
-    "純粹長打率": "ISO",
+    "上壘加長打率": "OPS",
+
+    # =========================
+    # 進階打擊（Sabermetrics）
+    # =========================
     "iso": "ISO",
+    "純粹長打率": "ISO",
+
     "babip": "BABIP",
-    
-    # Statcast 指標
-    "出棒速度": "Exit_Velocity",
-    "擊球仰角": "Launch_Angle",
+    "被內野安打率": "BABIP",
+    "平均打球落點": "BABIP",
+
+    "woba": "wOBA",
+    "加權上壘率": "wOBA",
+
+    "wrc+": "wRC+",
+    "加權創造分": "wRC+",
+    "加權得分創造+": "wRC+",
+
     "barrel%": "Barrel%",
+    "強擊率": "Barrel%",
+    "桶擊率": "Barrel%",
+
+    "hardhit%": "HardHit%",
+    "強勁擊球率": "HardHit%",
     "強擊球率": "HardHit%",
-    
-    # ============================================================
-    # 投手核心指標（最常查詢）
-    # ============================================================
-    
-    # 基礎投球
-    "防禦率": "ERA",
+
+    "exit_velocity": "Exit_Velocity",
+    "出棒速度": "Exit_Velocity",
+    "擊球速度": "Exit_Velocity",
+
+    "launch_angle": "Launch_Angle",
+    "擊球仰角": "Launch_Angle",
+
+    # =========================
+    # 選球與揮棒能力（Plate discipline）
+    # =========================
+    "o-swing%": "O-Swing%",
+    "o-swing": "O-Swing%",
+    "壞球揮棒率": "O-Swing%",
+
+    "z-swing%": "Z-Swing%",
+    "好球揮棒率": "Z-Swing%",
+
+    "swing%": "Swing%",
+    "揮棒率": "Swing%",
+
+    "o-contact%": "O-Contact%",
+    "壞球接觸率": "O-Contact%",
+
+    "z-contact%": "Z-Contact%",
+    "好球接觸率": "Z-Contact%",
+
+    "contact%": "Contact%",
+    "接觸率": "Contact%",
+
+    "csw%": "CSW%",
+    "揮空加看球率": "CSW%",
+    "揮空+叫好率": "CSW%",
+
+    "swstr%": "SwStr%",
+    "揮空率": "SwStr%",
+
+    # =========================
+    # 投手核心指標（ERA / FIP / WHIP）
+    # =========================
     "era": "ERA",
-    "投球局數": "Innings_Pitched",
-    "三振數": "Strikeouts",     # 投手三振打者（注意：不是 SO）
-    "勝場": "Wins",
-    "敗場": "Losses",
-    "救援成功": "Saves",
-    
-    # 進階投球指標
+    "防禦率": "ERA",
+
     "whip": "WHIP",
+    "每局上壘率": "WHIP",
+
     "fip": "FIP",
+    "獨立防禦率": "FIP",
+
     "xfip": "xFIP",
+    "預期獨立防禦率": "xFIP",
+
     "siera": "SIERA",
-    
-    # 投球率指標
-    "三振率": "K%",             # K% 打者和投手都有
+    "技能互動調整防禦率": "SIERA",
+
+    # =========================
+    # 投手比率類（K/BB 類型）
+    # =========================
     "k%": "K%",
-    "保送率": "BB%",            # BB% 打者和投手都有
+    "三振率": "K%",
+
     "bb%": "BB%",
-    "k/9": "K/9",              # 每 9 局三振數（投手專屬）
-    "bb/9": "BB/9",            # 每 9 局保送數（投手專屬）
-    
-    # 被打結果
-    "被全壘打": "Home_Runs_Allowed",  # 投手專屬
-    
-    # 通用指標
-    "war": "WAR",
-    
-    # 英文別名（便於用戶直接輸入英文）
-    "home runs": "HR",
-    "strikeouts": "Strikeouts",  # 投手三振
-    "earned run average": "ERA",
+    "保送率": "BB%",
+
+    "k/9": "K/9",
+    "每九局三振": "K/9",
+
+    "bb/9": "BB/9",
+    "每九局保送": "BB/9",
+
+    "k/bb": "K/BB",
+    "三振保送比": "K/BB",
+
+    # =========================
+    # 被打結果（Batted-ball allowed）
+    # =========================
+    "home_runs_allowed": "Home_Runs_Allowed",
+    "home runs allowed": "Home_Runs_Allowed",
+    "被全壘打": "Home_Runs_Allowed",
+    "被打全壘打": "Home_Runs_Allowed",
+
+    "h/9": "H/9",
+    "每九局被安打": "H/9",
+
+    "hr/9": "HR/9",
+    "每九局被全壘打": "HR/9",
+
     "innings pitched": "Innings_Pitched",
+    "inning pitched": "Innings_Pitched",
+    "ip": "Innings_Pitched",
+    "投球局數": "Innings_Pitched",
+    "局數": "Innings_Pitched",
+
+    # =========================
+    # 勝投相關
+    # =========================
+    "wins": "Wins",
+    "勝場": "Wins",
+
+    "losses": "Losses",
+    "敗場": "Losses",
+
+    "saves": "Saves",
+    "救援成功": "Saves",
+
+    # =========================
+    # WAR 系列
+    # =========================
+    "war": "WAR",
+    "勝場貢獻值": "WAR",
+
+    # =========================
+    # 英文別名（便於用戶直接輸入英文）
+    # =========================
+    "batting average": "AVG",
+    "on-base percentage": "OBP",
+    "slugging percentage": "SLG",
+    "on-base plus slugging": "OPS",
+    "home runs": "HR",
+    "strikeouts": "Strikeouts",
+    "earned run average": "ERA",
     "runs batted in": "RBI",
 }
 
@@ -192,9 +306,18 @@ class QueryRouter:
     # ------------------------------------------------------------
     def extract_top_n(self, query: str):
         # 中文：前 N 名
-        m = re.search(r"前\s*(\d+)\s*名", query)
+
+        m = re.search(r"排名前\s*(\d+)\s*", query)
         if m:
             return int(m.group(1))
+        
+        m = re.search(r"前\s*(\d+)\s*(位|名)", query)
+        if m:
+            return int(m.group(1))
+        
+        m = re.search(r"最(高|低|快|慢|多|少)的\s*(\d+)\s*(位|名)", query)
+        if m:
+            return int(m.group(2))
 
         # ⭐ v6.0.3: 前 N 高/低/快/慢
         m = re.search(r"前\s*(\d+)\s*(高|低|快|慢|多|少)", query)

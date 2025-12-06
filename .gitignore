@@ -10,4 +10,4 @@ mlb_lancedb/
 results/metrics_log.jsonl
 # *.jsonl
 
-test/reports/
+# test/reports/

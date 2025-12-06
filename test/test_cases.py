@@ -84,8 +84,33 @@ REAL_PLAYERS = {
 
 # 指標對應
 METRICS = {
-    "batter": ["HR", "AVG", "OPS", "RBI", "SLG", "OBP", "wRC+", "wOBA"],
-    "pitcher": ["ERA", "WHIP", "K%", "FIP", "K/9", "BB/9", "W", "SV"]
+
+    # =========================
+    # 打者（batter）
+    # =========================
+    "batter": [
+        "HR", "Hits", "RBI", "Runs", "SB", "BB", "SO",
+        "AVG", "OBP", "SLG", "OPS",
+        "ISO", "BABIP",
+        "wOBA", "wRC+",
+        "Barrel%", "HardHit%",
+        "Exit_Velocity", "Launch_Angle",
+        "O-Swing%", "Z-Swing%", "Swing%",
+        "O-Contact%", "Z-Contact%", "Contact%",
+        "CSW%", "SwStr%",
+        "WAR"
+    ],
+
+    # =========================
+    # 投手（pitcher）
+    # =========================
+    "pitcher": [
+        "ERA", "WHIP", "FIP", "xFIP", "SIERA",
+        "K%", "BB%", "K/9", "BB/9", "K/BB",
+        "H/9", "HR/9",
+        "Wins", "Losses", "Saves",
+        "WAR", "Strikeouts"
+    ]
 }
 
 PLAYER_KEY_MAP = {
@@ -130,7 +155,6 @@ def generate_factual_queries(n=50):
     queries = []
 
     templates = [
-        "{player} {year} 打擊表現",
         "{player} {year} {metric}",
         "{player}在{year}年的{metric}是多少",
         "查詢{player} {year}年{metric}數據",
@@ -213,7 +237,7 @@ def generate_comparison_queries(n=50):
     templates = [
         "比較{p1}和{p2}{year}年的{metric}",
         "{year}年{metric}比較：{p1} vs {p2}",
-        "{p1} 和 {p2} 在 {year} 年誰的 {metric} 較好？",
+        "{p1} 和 {p2} 在 {year} 年誰的 {metric} 比較好？",
     ]
 
     for i in range(n):
@@ -640,10 +664,12 @@ def calculate_summary_metrics(results: dict) -> dict:
             summary["rag"]["recall_at_5"] = sum(r["recall_at_k"] for r in non_ranking) / len(non_ranking)
             summary["rag"]["precision_at_5"] = sum(r["precision_at_k"] for r in non_ranking) / len(non_ranking)
             summary["rag"]["mrr"] = sum(r["mrr"] for r in non_ranking) / len(non_ranking)
+            summary["rag"]["precision_at_1"] = sum(1 for r in non_ranking if r.get("precision_at_1") == 1) / len(non_ranking)
         else:
             summary["rag"]["recall_at_5"] = 0.0
             summary["rag"]["precision_at_5"] = 0.0
             summary["rag"]["mrr"] = 0.0
+            summary["rag"]["precision_at_1"] = 0.0
         
         # Fact Consistency
         summary["rag"]["fact_consistency"] = 1.0
@@ -677,10 +703,12 @@ def calculate_summary_metrics(results: dict) -> dict:
             summary["llm"]["recall_at_5"] = sum(r["recall_at_k"] for r in non_ranking) / len(non_ranking)
             summary["llm"]["precision_at_5"] = sum(r["precision_at_k"] for r in non_ranking) / len(non_ranking)
             summary["llm"]["mrr"] = sum(r["mrr"] for r in non_ranking) / len(non_ranking)
+            summary["llm"]["precision_at_1"] = sum(1 for r in non_ranking if r.get("precision_at_1") == 1) / len(non_ranking)
         else:
             summary["llm"]["recall_at_5"] = 0.0
             summary["llm"]["precision_at_5"] = 0.0
             summary["llm"]["mrr"] = 0.0
+            summary["llm"]["precision_at_1"] = 0.0
         
         # Fact Consistency
         summary["llm"]["fact_consistency"] = sum(r["fact_consistency"] for r in llm_results) / len(llm_results)
@@ -724,6 +752,7 @@ def print_summary_report(summary: dict):
         print("\n【LLM 模式】- 50 筆 Analysis 測試")
         print("-" * 80)
         print(f"  Recall@5:                    {llm['recall_at_5']:.1%}")
+        print(f"  Precision@1:                 {llm['precision_at_1']:.1%}")
         print(f"  Precision@5:                 {llm['precision_at_5']:.1%}")
         print(f"  MRR:                         {llm['mrr']:.3f}")
         print(f"  Query Classification Acc:    {llm['classification_accuracy']:.1%}")
@@ -752,6 +781,7 @@ def generate_markdown_report(summary: dict, output_dir: Path, timestamp: str):
             f.write("| 指標 | 數值 | 說明 |\n")
             f.write("|------|------|------|\n")
             f.write(f"| **Recall@5** | {rag['recall_at_5']:.1%} | 前5個結果包含所有相關文檔 |\n")
+            f.write(f"| **Precision@1** | {rag['precision_at_1']:.1%} | 前1個結果中相關文檔比例 |\n")
             f.write(f"| **Precision@5** | {rag['precision_at_5']:.1%} | 前5個結果中相關文檔比例 |\n")
             f.write(f"| **MRR** | {rag['mrr']:.3f} | 第一個相關結果的排名 |\n")
             f.write(f"| **Query Classification Accuracy** | {rag['classification_accuracy']:.1%} | 查詢分類準確率 |\n")
